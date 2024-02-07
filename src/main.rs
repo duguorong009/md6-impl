@@ -10,17 +10,26 @@ const S0: u64 = 0x0123456789abcdef;
 const Sm: u64 = 0x7311c2812425cfa0;
 
 const Q: [u64; 15] = [
-    0x7311c2812425cfa0, 0x6432286434aac8e7, 0xb60450e9ef68b7c1,
-    0xe8fb23908d9f06f1, 0xdd2e76cba691e5bf, 0x0cd0d63b2c30bc41,
-    0x1f8ccf6823058f8a, 0x54e5ed5b88e3775d, 0x4ad12aae0a6d6031,
-    0x3e7f16bb88222e0d, 0x8af8671d3fb50c2c, 0x995ad1178bd25c31,
-    0xc878c1dd04c4b633, 0x3b72066c7a1552ac, 0x0d6f3522631effcb
+    0x7311c2812425cfa0,
+    0x6432286434aac8e7,
+    0xb60450e9ef68b7c1,
+    0xe8fb23908d9f06f1,
+    0xdd2e76cba691e5bf,
+    0x0cd0d63b2c30bc41,
+    0x1f8ccf6823058f8a,
+    0x54e5ed5b88e3775d,
+    0x4ad12aae0a6d6031,
+    0x3e7f16bb88222e0d,
+    0x8af8671d3fb50c2c,
+    0x995ad1178bd25c31,
+    0xc878c1dd04c4b633,
+    0x3b72066c7a1552ac,
+    0x0d6f3522631effcb,
 ];
 
-const t: [u64; 6]  = [17, 18, 21, 31, 67, 89];
-const rs: [u64; 16] = [10,  5, 13, 10, 11, 12,  2,  7, 14, 15,  7, 13, 11,  7,  6, 12];
-const ls: [u64; 16] = [11, 24,  9, 16, 15,  9, 27, 15,  6,  2, 29,  8, 15,  5, 31,  9];
-
+const t: [u64; 6] = [17, 18, 21, 31, 67, 89];
+const rs: [u64; 16] = [10, 5, 13, 10, 11, 12, 2, 7, 14, 15, 7, 13, 11, 7, 6, 12];
+const ls: [u64; 16] = [11, 24, 9, 16, 15, 9, 27, 15, 6, 2, 29, 8, 15, 5, 31, 9];
 
 fn to_word(bytes: &[u8]) -> Vec<u64> {
     // Ensure the input length is a multiple of 8
@@ -111,18 +120,35 @@ fn f(N: Vec<u64>, r: u64) -> Vec<u64> {
     A[(A.len() - 16)..].to_vec()
 }
 
-fn mid(B: Vec<u64>, C: Vec<u64>, i: u64, p: u64, z: u64) -> Vec<u64> {
-    let U = ((ell.clone() & 0xff) << 56) | i & 0xffffffffffffff;
-    let V = ((r & 0xfff) << 48) | ((L & 0xff) << 40) | ((z & 0xf) << 36) | ((p & 0xffff) << 20) | (((k as u64) & 0xff) << 12) | (d & 0xfff);
+fn mid(
+    B: Vec<u64>,
+    C: Vec<u64>,
+    i: u64,
+    p: u64,
+    z: u64,
+    r: u64, /* rounds */
+    ell: u64, /* ??? */
+    L: u64, /* levels */
+    k: u64, /* key len */
+    d: u64, /* size */
+    K: Vec<u64>, /* key vector(8 words) */
+) -> Vec<u64> {
+    let U = ((ell & 0xff) << 56) | i & 0xffffffffffffff;
+    let V = ((r & 0xfff) << 48)
+        | ((L & 0xff) << 40)
+        | ((z & 0xf) << 36)
+        | ((p & 0xffff) << 20)
+        | ((k & 0xff) << 12)
+        | (d & 0xfff);
 
     let mut res = vec![];
     res.extend(Q);
-    res.extend(K.clone());
+    res.extend(K);
     res.push(U);
     res.push(V);
     res.extend(C);
     res.extend(B);
-    f(res)
+    f(res, r)
 }
 
 fn par(mut M: Vec<u8>) -> Vec<u8> {
@@ -162,7 +188,9 @@ fn par(mut M: Vec<u8>) -> Vec<u8> {
 fn seq(mut M: Vec<u8>) -> Vec<u8> {
     let mut P = 0;
     let mut B: Vec<Vec<u64>> = vec![];
-    let mut C = vec![0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0];
+    let mut C = vec![
+        0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+    ];
 
     while M.len() < 1 || (M.len() % (b - c)) > 0 {
         M.push(0x00);
@@ -173,7 +201,7 @@ fn seq(mut M: Vec<u8>) -> Vec<u8> {
 
     while M.len() > 0 {
         B.push(M[..((b - c) / 8)].to_vec());
-        M = M[((b - c)/8)..].to_vec();
+        M = M[((b - c) / 8)..].to_vec();
     }
 
     let mut i = 0;
@@ -193,7 +221,6 @@ fn seq(mut M: Vec<u8>) -> Vec<u8> {
 }
 
 fn hash(size: usize, data: &[u8], key: &[u8], levels: usize) -> Vec<u8> {
-
     let d = size as u64;
     let mut M = data.to_vec();
 
@@ -222,8 +249,10 @@ fn hash(size: usize, data: &[u8], key: &[u8], levels: usize) -> Vec<u8> {
         ell += 1;
         M = if ell > L { seq(M) } else { par(M) };
 
-        if M.len() == c as usize { break };
-    };
+        if M.len() == c as usize {
+            break;
+        };
+    }
 
     crop(d as usize, M, true)
 }
