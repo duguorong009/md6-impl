@@ -299,7 +299,7 @@ fn hex(data: Option<String>, size: Option<usize>, key: Option<String>, levels: O
     let byte = prehash(data, size, key, levels);
 
     let hex_string: String = byte.iter()
-        .map(|byte| format!("{:02X}", byte)) // Convert each byte to a two-digit hexadecimal string
+        .map(|byte| format!("{:02x}", byte)) // Convert each byte to a two-digit hexadecimal string
         .collect::<Vec<String>>()
         .join(""); // Concatenate all hexadecimal strings into one string
 
@@ -313,4 +313,18 @@ fn raw(data: Option<String>, size: Option<usize>, key: Option<String>, levels: O
     let levels = levels.unwrap_or(64);
 
     prehash(data, size, key, levels)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::hex;
+
+    #[test]
+    fn test_md6() {
+        let hash = hex(Some("a".to_string()), None, None, None);
+        assert_eq!(hash, "c0e4e18acb69cd1a7e5a20981fe6cc6f7b5b70e814d3a13b05ac292aba74c0d8c9d34c211414e7ab755a9559c27211cd749fc3eb09ae670e138881743b8d5051");
+
+        let hash = hex(Some("a".to_string()), Some(64), None, None);
+        assert_eq!(hash, "32d13030a6815e95");
+    }
 }
