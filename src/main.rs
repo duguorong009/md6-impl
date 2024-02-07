@@ -126,12 +126,12 @@ fn mid(
     i: u64,
     p: u64,
     z: u64,
-    r: u64,      /* rounds */
-    ell: u64,    /* ??? */
-    L: u64,      /* levels */
-    k: u64,      /* key len */
-    d: u64,      /* size */
-    K: Vec<u64>, /* key vector(8 words) */
+    r: u64,    /* rounds */
+    ell: u64,  /* ??? */
+    L: u64,    /* levels */
+    k: u64,    /* key len */
+    d: u64,    /* size */
+    K: &[u64], /* key vector(8 words) */
 ) -> Vec<u64> {
     let U = ((ell & 0xff) << 56) | i & 0xffffffffffffff;
     let V = ((r & 0xfff) << 48)
@@ -153,12 +153,12 @@ fn mid(
 
 fn par(
     mut M: Vec<u8>,
-    r: u64,      /* rounds */
-    ell: u64,    /* ??? */
-    L: u64,      /* levels */
-    k: u64,      /* key len */
-    d: u64,      /* size */
-    K: Vec<u64>, /* key vector(8 words) */
+    r: u64,    /* rounds */
+    ell: u64,  /* ??? */
+    L: u64,    /* levels */
+    k: u64,    /* key len */
+    d: u64,    /* size */
+    K: &[u64], /* key vector(8 words) */
 ) -> Vec<u8> {
     let mut P = 0;
     let mut B: Vec<Vec<u64>> = vec![];
@@ -195,12 +195,12 @@ fn par(
 
 fn seq(
     mut M: Vec<u8>,
-    r: u64,      /* rounds */
-    ell: u64,    /* ??? */
-    L: u64,      /* levels */
-    k: u64,      /* key len */
-    d: u64,      /* size */
-    K: Vec<u64>, /* key vector(8 words) */
+    r: u64,    /* rounds */
+    ell: u64,  /* ??? */
+    L: u64,    /* levels */
+    k: u64,    /* key len */
+    d: u64,    /* size */
+    K: &[u64], /* key vector(8 words) */
 ) -> Vec<u8> {
     let mut P = 0;
     let mut B: Vec<Vec<u64>> = vec![];
@@ -254,8 +254,8 @@ fn hash(size: usize, data: &[u8], key: &[u8], levels: usize) -> Vec<u8> {
 
     let r = {
         let a = if k != 0 { 80 } else { 0 };
-        let b = 40 + d / 4;
-        a.max(b) as u64
+        let b_var = 40 + d / 4;
+        a.max(b_var) as u64
     };
 
     let L = levels as u64;
@@ -263,7 +263,11 @@ fn hash(size: usize, data: &[u8], key: &[u8], levels: usize) -> Vec<u8> {
 
     loop {
         ell += 1;
-        M = if ell > L { seq(M) } else { par(M) };
+        M = if ell > L {
+            seq(M, r, ell, L, k as u64, d, &K)
+        } else {
+            par(M, r, ell, L, k as u64, d, &K)
+        };
 
         if M.len() == c as usize {
             break;
