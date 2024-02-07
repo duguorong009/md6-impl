@@ -276,3 +276,41 @@ fn hash(size: usize, data: &[u8], key: &[u8], levels: usize) -> Vec<u8> {
 
     crop(d as usize, M, true)
 }
+
+fn bytes(data: String) -> Vec<u8> {
+    data.into_bytes()
+}
+
+fn prehash(data: String, size: usize, key: String, levels: usize) -> Vec<u8> {
+    let data = bytes(data);
+    let key = bytes(key);
+
+    let size = if size == 0 { 1 } else if size > 512 { 512 } else { size };
+
+    hash(size, &data, &key, levels)
+}
+
+fn hex(data: Option<String>, size: Option<usize>, key: Option<String>, levels: Option<usize>) -> String {
+    let data = data.unwrap_or("".to_string());
+    let size = size.unwrap_or(512);
+    let key = key.unwrap_or("".to_string());
+    let levels = levels.unwrap_or(64);
+
+    let byte = prehash(data, size, key, levels);
+
+    let hex_string: String = byte.iter()
+        .map(|byte| format!("{:02X}", byte)) // Convert each byte to a two-digit hexadecimal string
+        .collect::<Vec<String>>()
+        .join(""); // Concatenate all hexadecimal strings into one string
+
+    hex_string
+}
+
+fn raw(data: Option<String>, size: Option<usize>, key: Option<String>, levels: Option<usize>) -> Vec<u8> {
+    let data = data.unwrap_or("".to_string());
+    let size = size.unwrap_or(512);
+    let key = key.unwrap_or("".to_string());
+    let levels = levels.unwrap_or(64);
+
+    prehash(data, size, key, levels)
+}
