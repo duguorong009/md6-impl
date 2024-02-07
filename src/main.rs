@@ -193,14 +193,22 @@ fn par(
     from_word(&C)
 }
 
-fn seq(mut M: Vec<u8>) -> Vec<u8> {
+fn seq(
+    mut M: Vec<u8>,
+    r: u64,      /* rounds */
+    ell: u64,    /* ??? */
+    L: u64,      /* levels */
+    k: u64,      /* key len */
+    d: u64,      /* size */
+    K: Vec<u64>, /* key vector(8 words) */
+) -> Vec<u8> {
     let mut P = 0;
     let mut B: Vec<Vec<u64>> = vec![];
     let mut C = vec![
         0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
     ];
 
-    while M.len() < 1 || (M.len() % (b - c)) > 0 {
+    while M.len() < 1 || (M.len() % (b - c) as usize) > 0 {
         M.push(0x00);
         P += 8;
     }
@@ -208,8 +216,8 @@ fn seq(mut M: Vec<u8>) -> Vec<u8> {
     let mut M = to_word(&M);
 
     while M.len() > 0 {
-        B.push(M[..((b - c) / 8)].to_vec());
-        M = M[((b - c) / 8)..].to_vec();
+        B.push(M[..((b - c) as usize / 8)].to_vec());
+        M = M[((b - c) as usize / 8)..].to_vec();
     }
 
     let mut i = 0;
@@ -219,7 +227,7 @@ fn seq(mut M: Vec<u8>) -> Vec<u8> {
     while i < l {
         p = if i == B.len() - 1 { P } else { 0 };
         let z = if i == B.len() - 1 { 1 } else { 0 };
-        C = mid(B[i].clone(), C, i as u64, p, z);
+        C = mid(B[i].clone(), C, i as u64, p, z, r, ell, L, k, d, K);
 
         i += 1;
         p = 0;
