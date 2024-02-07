@@ -126,11 +126,11 @@ fn mid(
     i: u64,
     p: u64,
     z: u64,
-    r: u64, /* rounds */
-    ell: u64, /* ??? */
-    L: u64, /* levels */
-    k: u64, /* key len */
-    d: u64, /* size */
+    r: u64,      /* rounds */
+    ell: u64,    /* ??? */
+    L: u64,      /* levels */
+    k: u64,      /* key len */
+    d: u64,      /* size */
     K: Vec<u64>, /* key vector(8 words) */
 ) -> Vec<u64> {
     let U = ((ell & 0xff) << 56) | i & 0xffffffffffffff;
@@ -151,13 +151,21 @@ fn mid(
     f(res, r)
 }
 
-fn par(mut M: Vec<u8>) -> Vec<u8> {
+fn par(
+    mut M: Vec<u8>,
+    r: u64,      /* rounds */
+    ell: u64,    /* ??? */
+    L: u64,      /* levels */
+    k: u64,      /* key len */
+    d: u64,      /* size */
+    K: Vec<u64>, /* key vector(8 words) */
+) -> Vec<u8> {
     let mut P = 0;
     let mut B: Vec<Vec<u64>> = vec![];
     let mut C = vec![];
-    let z = if M.len() > b { 0 } else { 1 };
+    let z = if M.len() > b as usize { 0 } else { 1 };
 
-    while M.len() < 1 || (M.len() % b) > 0 {
+    while M.len() < 1 || (M.len() % b as usize) > 0 {
         M.push(0x00);
         P += 8;
     }
@@ -165,8 +173,8 @@ fn par(mut M: Vec<u8>) -> Vec<u8> {
     let mut M = to_word(&M);
 
     while M.len() > 0 {
-        B.push(M[..(b / 8)].to_vec());
-        M = M[(b / 8)..].to_vec();
+        B.push(M[..(b as usize / 8)].to_vec());
+        M = M[(b as usize / 8)..].to_vec();
     }
 
     let mut i = 0;
@@ -175,7 +183,7 @@ fn par(mut M: Vec<u8>) -> Vec<u8> {
 
     while i < l {
         p = if i == B.len() - 1 { P } else { 0 };
-        let res = mid(B[i].clone(), vec![], i as u64, p, z);
+        let res = mid(B[i].clone(), vec![], i as u64, p, z, r, ell, L, k, d, K);
         C.extend(res);
 
         i += 1;
