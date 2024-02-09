@@ -33,7 +33,7 @@ const OPTIMIZE_DIFFUSION: [u64; 6] = [17, 18, 21, 31, 67, 89];
 const RIGHT_SHIFT_AMOUNTS: [u64; 16] = [10, 5, 13, 10, 11, 12, 2, 7, 14, 15, 7, 13, 11, 7, 6, 12];
 const LEFT_SHIFT_AMOUNTS: [u64; 16] = [11, 24, 9, 16, 15, 9, 27, 15, 6, 2, 29, 8, 15, 5, 31, 9];
 
-fn to_word(bytes: &[u8]) -> Vec<u64> {
+fn bytes_to_words(bytes: &[u8]) -> Vec<u64> {
     // Ensure the input length is a multiple of 8
     assert_eq!(bytes.len() % 8, 0, "Input length must be a multiple of 8");
 
@@ -54,7 +54,7 @@ fn to_word(bytes: &[u8]) -> Vec<u64> {
     words
 }
 
-fn from_word(words: &[u64]) -> Vec<u8> {
+fn words_to_bytes(words: &[u64]) -> Vec<u8> {
     // Create an empty vector to store the u8 values
     let mut bytes = Vec::with_capacity(words.len() * 8);
 
@@ -89,9 +89,12 @@ fn crop(size: usize, mut data: Vec<u8>, right: bool) -> Vec<u8> {
     data
 }
 
-fn compress_func(N: Vec<u64>, r: u64 /* rounds */) -> Vec<u64> {
+fn compress_func(
+    input: Vec<u64>, /* input block(89 words) */
+    r: u64,          /* rounds */
+) -> Vec<u64> {
     let mut S = ROUND_CONSTANTS_S0;
-    let mut A = N;
+    let mut output = input;
 
     let mut j = 0;
     let mut i = COMPRESSION_INPUT_WORDS;
@@ -99,21 +102,22 @@ fn compress_func(N: Vec<u64>, r: u64 /* rounds */) -> Vec<u64> {
     while j < r {
         for s in 0..16 {
             let mut x = S;
-            x ^= A[(i + s - OPTIMIZE_DIFFUSION[5]) as usize];
-            x ^= A[(i + s - OPTIMIZE_DIFFUSION[0]) as usize];
-            x ^= A[(i + s - OPTIMIZE_DIFFUSION[1]) as usize]
-                & A[(i + s - OPTIMIZE_DIFFUSION[2]) as usize];
-            x ^= A[(i + s - OPTIMIZE_DIFFUSION[3]) as usize]
-                & A[(i + s - OPTIMIZE_DIFFUSION[4]) as usize];
+            x ^= output[(i + s - OPTIMIZE_DIFFUSION[5]) as usize];
+            x ^= output[(i + s - OPTIMIZE_DIFFUSION[0]) as usize];
+            x ^= output[(i + s - OPTIMIZE_DIFFUSION[1]) as usize]
+                & output[(i + s - OPTIMIZE_DIFFUSION[2]) as usize];
+            x ^= output[(i + s - OPTIMIZE_DIFFUSION[3]) as usize]
+                & output[(i + s - OPTIMIZE_DIFFUSION[4]) as usize];
             x ^= x >> RIGHT_SHIFT_AMOUNTS[s as usize];
 
-            if A.len() <= (i + s) as usize {
-                while A.len() <= (i + s) as usize {
-                    A.push(0x00);
+            if output.len() <= (i + s) as usize {
+                while output.len() <= (i + s) as usize {
+                    output.push(0x00);
                 }
             }
 
-            A[(i + s) as usize] = x ^ ((x << LEFT_SHIFT_AMOUNTS[s as usize]) & 0xffffffffffffffff);
+            output[(i + s) as usize] =
+                x ^ ((x << LEFT_SHIFT_AMOUNTS[s as usize]) & 0xffffffffffffffff);
         }
 
         S = (((S << 1) & 0xffffffffffffffff) ^ (S >> 63)) ^ (S & ROUND_CONSTANTS_MASK);
@@ -121,128 +125,146 @@ fn compress_func(N: Vec<u64>, r: u64 /* rounds */) -> Vec<u64> {
         j += 1;
         i += 16;
     }
-    A[(A.len() - 16)..].to_vec()
+    output[(output.len() - 16)..].to_vec()
 }
 
 fn mid(
-    B: Vec<u64>,
+    block: &[u64], /* a block for compress input(64 words) */
     C: Vec<u64>,
     i: u64,
     p: u64,
     z: u64,
-    r: u64,    /* rounds */
-    ell: u64,  /* ??? */
-    L: u64,    /* levels */
-    k: u64,    /* key len */
-    d: u64,    /* size */
-    K: &[u64], /* key vector(8 words) */
+    d: u64,       /* digest size */
+    r: u64,       /* rounds */
+    ell: u64,     /* ??? */
+    levels: u64,  /* levels */
+    key_len: u64, /* key len */
+    key: &[u64],  /* key vector(8 words) */
 ) -> Vec<u64> {
-    let U = ((ell & 0xff) << 56) | i & 0xffffffffffffff;
-    let V = ((r & 0xfff) << 48)
-        | ((L & 0xff) << 40)
+    assert!(block.len() == 64, "Block should be 64 words");
+
+    let u = ((ell & 0xff) << 56) | i & 0xffffffffffffff;
+    let v = ((r & 0xfff) << 48)
+        | ((levels & 0xff) << 40)
         | ((z & 0xf) << 36)
         | ((p & 0xffff) << 20)
-        | ((k & 0xff) << 12)
+        | ((key_len & 0xff) << 12)
         | (d & 0xfff);
 
-    let mut res = vec![];
-    res.extend(Q);
-    res.extend(K);
-    res.push(U);
-    res.push(V);
-    res.extend(C);
-    res.extend(B);
-    compress_func(res, r)
+    let compress_input = Q
+        .into_iter()
+        .chain(key.iter().copied())
+        .chain(std::iter::once(u))
+        .chain(std::iter::once(v))
+        .chain(C)
+        .chain(block.iter().copied())
+        .collect();
+
+    compress_func(compress_input, r)
 }
 
 fn par(
-    mut M: Vec<u8>,
-    r: u64,    /* rounds */
-    ell: u64,  /* ??? */
-    L: u64,    /* levels */
-    k: u64,    /* key len */
-    d: u64,    /* size */
-    K: &[u64], /* key vector(8 words) */
+    mut state_bytes: Vec<u8>,
+    d: u64,       /* digest size */
+    r: u64,       /* rounds */
+    ell: u64,     /* ??? */
+    levels: u64,  /* levels */
+    key_len: u64, /* key len */
+    key: &[u64],  /* key vector(8 words) */
 ) -> Vec<u8> {
     let mut P = 0;
-    let mut B: Vec<Vec<u64>> = vec![];
+    let mut blocks: Vec<Vec<u64>> = vec![];
     let mut C = vec![];
-    let z = if M.len() > BLOCK_BYTES as usize { 0 } else { 1 };
+    let z = if state_bytes.len() > BLOCK_BYTES as usize {
+        0
+    } else {
+        1
+    };
 
-    while M.len() < 1 || (M.len() % BLOCK_BYTES as usize) > 0 {
-        M.push(0x00);
+    while state_bytes.len() < 1 || (state_bytes.len() % BLOCK_BYTES as usize) > 0 {
+        state_bytes.push(0x00);
         P += 8;
     }
 
-    let mut M = to_word(&M);
+    let mut state_words = bytes_to_words(&state_bytes);
 
-    while M.len() > 0 {
-        B.push(M[..(BLOCK_BYTES as usize / 8)].to_vec());
-        M = M[(BLOCK_BYTES as usize / 8)..].to_vec();
+    while state_words.len() > 0 {
+        blocks.push(state_words[..(BLOCK_BYTES as usize / 8)].to_vec());
+        state_words = state_words[(BLOCK_BYTES as usize / 8)..].to_vec();
     }
 
     let mut i = 0;
-    let mut p = 0;
-    let l = B.len();
+    let l = blocks.len();
 
     while i < l {
-        p = if i == B.len() - 1 { P } else { 0 };
-        let res = mid(B[i].clone(), vec![], i as u64, p, z, r, ell, L, k, d, K);
+        let p = if i == blocks.len() - 1 { P } else { 0 };
+        let res = mid(
+            &blocks[i],
+            vec![],
+            i as u64,
+            p,
+            z,
+            d,
+            r,
+            ell,
+            levels,
+            key_len,
+            key,
+        );
         C.extend(res);
 
         i += 1;
-        p = 0;
     }
 
-    from_word(&C)
+    words_to_bytes(&C)
 }
 
 fn seq(
-    mut M: Vec<u8>,
-    r: u64,    /* rounds */
-    ell: u64,  /* ??? */
-    L: u64,    /* levels */
-    k: u64,    /* key len */
-    d: u64,    /* size */
-    K: &[u64], /* key vector(8 words) */
+    mut state_bytes: Vec<u8>,
+    d: u64,       /* digest size */
+    r: u64,       /* rounds */
+    ell: u64,     /* ??? */
+    levels: u64,  /* levels */
+    key_len: u64, /* key len */
+    key: &[u64],  /* key vector(8 words) */
 ) -> Vec<u8> {
-    let mut P = 0;
-    let mut B: Vec<Vec<u64>> = vec![];
+    let mut P: u64 = 0;
+    let mut blocks: Vec<Vec<u64>> = vec![];
     let mut C = vec![
         0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
     ];
 
-    while M.len() < 1 || (M.len() % (BLOCK_BYTES - c) as usize) > 0 {
-        M.push(0x00);
+    while state_bytes.len() < 1 || (state_bytes.len() % (BLOCK_BYTES - c) as usize) > 0 {
+        state_bytes.push(0x00);
         P += 8;
     }
 
-    let mut M = to_word(&M);
+    let mut state_words = bytes_to_words(&state_bytes);
 
-    while M.len() > 0 {
-        B.push(M[..((BLOCK_BYTES - c) as usize / 8)].to_vec());
-        M = M[((BLOCK_BYTES - c) as usize / 8)..].to_vec();
+    while state_words.len() > 0 {
+        blocks.push(state_words[..((BLOCK_BYTES - c) as usize / 8)].to_vec());
+        state_words = state_words[((BLOCK_BYTES - c) as usize / 8)..].to_vec();
     }
 
     let mut i = 0;
-    let mut p = 0;
-    let l = B.len();
+    let l = blocks.len();
 
     while i < l {
-        p = if i == B.len() - 1 { P } else { 0 };
-        let z = if i == B.len() - 1 { 1 } else { 0 };
-        C = mid(B[i].clone(), C, i as u64, p, z, r, ell, L, k, d, K);
+        let p = if i == blocks.len() - 1 { P } else { 0 };
+        let z = if i == blocks.len() - 1 { 1 } else { 0 };
+        C = mid(
+            &blocks[i], C, i as u64, p, z, d, r, ell, levels, key_len, key,
+        );
 
         i += 1;
-        p = 0;
     }
 
-    from_word(&C)
+    words_to_bytes(&C)
 }
 
 fn hash(digest_size: usize, data: &[u8], key: &[u8], levels: usize) -> Vec<u8> {
     let d = digest_size as u64;
-    let mut M = data.to_vec();
+    let mut hash_state = data.to_vec();
 
     let key_bytes_len = key.len();
 
@@ -254,7 +276,7 @@ fn hash(digest_size: usize, data: &[u8], key: &[u8], levels: usize) -> Vec<u8> {
         temp
     };
 
-    let key_words = to_word(&key_bytes);
+    let key_words = bytes_to_words(&key_bytes);
 
     let rounds = {
         let a = if key_bytes_len != 0 { 80 } else { 0 };
@@ -267,18 +289,34 @@ fn hash(digest_size: usize, data: &[u8], key: &[u8], levels: usize) -> Vec<u8> {
 
     loop {
         ell += 1;
-        M = if ell > levels {
-            seq(M, rounds, ell, levels, key_bytes_len as u64, d, &key_words)
+        hash_state = if ell > levels {
+            seq(
+                hash_state,
+                d,
+                rounds,
+                ell,
+                levels,
+                key_bytes_len as u64,
+                &key_words,
+            )
         } else {
-            par(M, rounds, ell, levels, key_bytes_len as u64, d, &key_words)
+            par(
+                hash_state,
+                d,
+                rounds,
+                ell,
+                levels,
+                key_bytes_len as u64,
+                &key_words,
+            )
         };
 
-        if M.len() == c as usize {
+        if hash_state.len() == c as usize {
             break;
         };
     }
 
-    crop(d as usize, M, true)
+    crop(d as usize, hash_state, true)
 }
 
 fn prehash(msg: String, digest_size: usize, key: String, levels: usize) -> Vec<u8> {
