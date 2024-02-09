@@ -1,13 +1,15 @@
+use std::cmp;
+
 fn main() {
     println!("Hello, world!");
 }
 
-const b: u64 = 512;
+const BLOCK_BYTES: u64 = 512;
 const c: u64 = 128;
-const n: u64 = 89;
+const COMPRESSION_INPUT_WORDS: u64 = 89;
 
-const S0: u64 = 0x0123456789abcdef;
-const Sm: u64 = 0x7311c2812425cfa0;
+const ROUND_CONSTANTS_S0: u64 = 0x0123456789abcdef;
+const ROUND_CONSTANTS_MASK: u64 = 0x7311c2812425cfa0;
 
 const Q: [u64; 15] = [
     0x7311c2812425cfa0,
@@ -27,9 +29,9 @@ const Q: [u64; 15] = [
     0x0d6f3522631effcb,
 ];
 
-const t: [u64; 6] = [17, 18, 21, 31, 67, 89];
-const rs: [u64; 16] = [10, 5, 13, 10, 11, 12, 2, 7, 14, 15, 7, 13, 11, 7, 6, 12];
-const ls: [u64; 16] = [11, 24, 9, 16, 15, 9, 27, 15, 6, 2, 29, 8, 15, 5, 31, 9];
+const OPTIMIZE_DIFFUSION: [u64; 6] = [17, 18, 21, 31, 67, 89];
+const RIGHT_SHIFT_AMOUNTS: [u64; 16] = [10, 5, 13, 10, 11, 12, 2, 7, 14, 15, 7, 13, 11, 7, 6, 12];
+const LEFT_SHIFT_AMOUNTS: [u64; 16] = [11, 24, 9, 16, 15, 9, 27, 15, 6, 2, 29, 8, 15, 5, 31, 9];
 
 fn to_word(bytes: &[u8]) -> Vec<u64> {
     // Ensure the input length is a multiple of 8
@@ -87,21 +89,23 @@ fn crop(size: usize, mut data: Vec<u8>, right: bool) -> Vec<u8> {
     data
 }
 
-fn f(N: Vec<u64>, r: u64) -> Vec<u64> {
-    let mut S = S0;
+fn compress_func(N: Vec<u64>, r: u64 /* rounds */) -> Vec<u64> {
+    let mut S = ROUND_CONSTANTS_S0;
     let mut A = N;
 
     let mut j = 0;
-    let mut i = n;
+    let mut i = COMPRESSION_INPUT_WORDS;
 
     while j < r {
         for s in 0..16 {
             let mut x = S;
-            x ^= A[(i + s - t[5]) as usize];
-            x ^= A[(i + s - t[0]) as usize];
-            x ^= A[(i + s - t[1]) as usize] & A[(i + s - t[2]) as usize];
-            x ^= A[(i + s - t[3]) as usize] & A[(i + s - t[4]) as usize];
-            x ^= x >> rs[s as usize];
+            x ^= A[(i + s - OPTIMIZE_DIFFUSION[5]) as usize];
+            x ^= A[(i + s - OPTIMIZE_DIFFUSION[0]) as usize];
+            x ^= A[(i + s - OPTIMIZE_DIFFUSION[1]) as usize]
+                & A[(i + s - OPTIMIZE_DIFFUSION[2]) as usize];
+            x ^= A[(i + s - OPTIMIZE_DIFFUSION[3]) as usize]
+                & A[(i + s - OPTIMIZE_DIFFUSION[4]) as usize];
+            x ^= x >> RIGHT_SHIFT_AMOUNTS[s as usize];
 
             if A.len() <= (i + s) as usize {
                 while A.len() <= (i + s) as usize {
@@ -109,10 +113,10 @@ fn f(N: Vec<u64>, r: u64) -> Vec<u64> {
                 }
             }
 
-            A[(i + s) as usize] = x ^ ((x << ls[s as usize]) & 0xffffffffffffffff);
+            A[(i + s) as usize] = x ^ ((x << LEFT_SHIFT_AMOUNTS[s as usize]) & 0xffffffffffffffff);
         }
 
-        S = (((S << 1) & 0xffffffffffffffff) ^ (S >> 63)) ^ (S & Sm);
+        S = (((S << 1) & 0xffffffffffffffff) ^ (S >> 63)) ^ (S & ROUND_CONSTANTS_MASK);
 
         j += 1;
         i += 16;
@@ -148,7 +152,7 @@ fn mid(
     res.push(V);
     res.extend(C);
     res.extend(B);
-    f(res, r)
+    compress_func(res, r)
 }
 
 fn par(
@@ -163,9 +167,9 @@ fn par(
     let mut P = 0;
     let mut B: Vec<Vec<u64>> = vec![];
     let mut C = vec![];
-    let z = if M.len() > b as usize { 0 } else { 1 };
+    let z = if M.len() > BLOCK_BYTES as usize { 0 } else { 1 };
 
-    while M.len() < 1 || (M.len() % b as usize) > 0 {
+    while M.len() < 1 || (M.len() % BLOCK_BYTES as usize) > 0 {
         M.push(0x00);
         P += 8;
     }
@@ -173,8 +177,8 @@ fn par(
     let mut M = to_word(&M);
 
     while M.len() > 0 {
-        B.push(M[..(b as usize / 8)].to_vec());
-        M = M[(b as usize / 8)..].to_vec();
+        B.push(M[..(BLOCK_BYTES as usize / 8)].to_vec());
+        M = M[(BLOCK_BYTES as usize / 8)..].to_vec();
     }
 
     let mut i = 0;
@@ -208,7 +212,7 @@ fn seq(
         0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
     ];
 
-    while M.len() < 1 || (M.len() % (b - c) as usize) > 0 {
+    while M.len() < 1 || (M.len() % (BLOCK_BYTES - c) as usize) > 0 {
         M.push(0x00);
         P += 8;
     }
@@ -216,8 +220,8 @@ fn seq(
     let mut M = to_word(&M);
 
     while M.len() > 0 {
-        B.push(M[..((b - c) as usize / 8)].to_vec());
-        M = M[((b - c) as usize / 8)..].to_vec();
+        B.push(M[..((BLOCK_BYTES - c) as usize / 8)].to_vec());
+        M = M[((BLOCK_BYTES - c) as usize / 8)..].to_vec();
     }
 
     let mut i = 0;
@@ -236,37 +240,37 @@ fn seq(
     from_word(&C)
 }
 
-fn hash(size: usize, data: &[u8], key: &[u8], levels: usize) -> Vec<u8> {
-    let d = size as u64;
+fn hash(digest_size: usize, data: &[u8], key: &[u8], levels: usize) -> Vec<u8> {
+    let d = digest_size as u64;
     let mut M = data.to_vec();
 
-    let k = key.len();
+    let key_bytes_len = key.len();
 
-    let K = {
+    let key_bytes: Vec<u8> = {
         let mut temp = vec![0x00; 64];
-        for i in 0..64.min(k) {
+        for i in 0..64.min(key_bytes_len) {
             temp[i] = key[i];
         }
         temp
     };
 
-    let K = to_word(&K);
+    let key_words = to_word(&key_bytes);
 
-    let r = {
-        let a = if k != 0 { 80 } else { 0 };
-        let b_var = 40 + d / 4;
-        a.max(b_var) as u64
+    let rounds = {
+        let a = if key_bytes_len != 0 { 80 } else { 0 };
+        let rounds = 40 + d / 4;
+        a.max(rounds) as u64
     };
 
-    let L = levels as u64;
+    let levels = levels as u64;
     let mut ell = 0;
 
     loop {
         ell += 1;
-        M = if ell > L {
-            seq(M, r, ell, L, k as u64, d, &K)
+        M = if ell > levels {
+            seq(M, rounds, ell, levels, key_bytes_len as u64, d, &key_words)
         } else {
-            par(M, r, ell, L, k as u64, d, &K)
+            par(M, rounds, ell, levels, key_bytes_len as u64, d, &key_words)
         };
 
         if M.len() == c as usize {
@@ -277,39 +281,28 @@ fn hash(size: usize, data: &[u8], key: &[u8], levels: usize) -> Vec<u8> {
     crop(d as usize, M, true)
 }
 
-fn bytes(data: String) -> Vec<u8> {
-    data.into_bytes()
+fn prehash(msg: String, digest_size: usize, key: String, levels: usize) -> Vec<u8> {
+    let msg_bytes = msg.into_bytes();
+    let key_bytes = key.into_bytes();
+    let digest_size = cmp::max(1, cmp::min(digest_size, 512));
+
+    hash(digest_size, &msg_bytes, &key_bytes, levels)
 }
 
-fn prehash(data: String, size: usize, key: String, levels: usize) -> Vec<u8> {
-    let data = bytes(data);
-    let key = bytes(key);
-
-    let size = if size == 0 {
-        1
-    } else if size > 512 {
-        512
-    } else {
-        size
-    };
-
-    hash(size, &data, &key, levels)
-}
-
-fn hex(
-    data: Option<String>,
-    size: Option<usize>,
+fn hash_hex(
+    msg: Option<String>,
+    digest_size: Option<usize>,
     key: Option<String>,
     levels: Option<usize>,
 ) -> String {
-    let data = data.unwrap_or("".to_string());
-    let size = size.unwrap_or(512);
-    let key = key.unwrap_or("".to_string());
+    let msg = msg.unwrap_or_default();
+    let digest_size = digest_size.unwrap_or(512);
+    let key = key.unwrap_or_default();
     let levels = levels.unwrap_or(64);
 
-    let byte = prehash(data, size, key, levels);
+    let digest = prehash(msg, digest_size, key, levels);
 
-    let hex_string: String = byte
+    let hex_string: String = digest
         .iter()
         .map(|byte| format!("{:02x}", byte)) // Convert each byte to a two-digit hexadecimal string
         .collect::<Vec<String>>()
@@ -318,23 +311,23 @@ fn hex(
     hex_string
 }
 
-fn raw(
-    data: Option<String>,
-    size: Option<usize>,
+fn hash_raw(
+    msg: Option<String>,
+    digest_size: Option<usize>,
     key: Option<String>,
     levels: Option<usize>,
 ) -> Vec<u8> {
-    let data = data.unwrap_or("".to_string());
-    let size = size.unwrap_or(512);
-    let key = key.unwrap_or("".to_string());
+    let msg = msg.unwrap_or_default();
+    let digest_size = digest_size.unwrap_or(512);
+    let key = key.unwrap_or_default();
     let levels = levels.unwrap_or(64);
 
-    prehash(data, size, key, levels)
+    prehash(msg, digest_size, key, levels)
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::hex;
+    use crate::hash_hex;
 
     #[test]
     fn test_md6() {
@@ -473,9 +466,9 @@ mod tests {
             ("md6", 512, "e94595891b2b3e2b2e3ae6943c17a34703c4230296f12f1689264e46518e0e1b0106996387ad6d8ec9b9c86e54301a71e6f4dab6e7369db4e503daae64f2e0a1"),
             ("md6 FTW", 512, "75df3b6031e8241ef59d01628b093b05906f1a2d80c43908cb2883f7db6fbdd1cadffd7d643505c20b9529b6a5d19f8b6ff1623cabbc14a606caa7bcb239611a"),
         ];
-        
+
         for (text, size, expected_hash) in TEST_VECTORS {
-            let hash = hex(Some(text.to_string()), Some(size), None, None);
+            let hash = hash_hex(Some(text.to_string()), Some(size), None, None);
             assert!(hash == expected_hash);
         }
     }
