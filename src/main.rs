@@ -5,7 +5,7 @@ fn main() {
 }
 
 const BLOCK_BYTES: u64 = 512;
-const c: u64 = 128;
+const SEQ_CHAIN_BYTES: u64 = 128;
 const COMPRESSION_INPUT_WORDS: u64 = 89;
 
 const ROUND_CONSTANTS_S0: u64 = 0x0123456789abcdef;
@@ -92,7 +92,7 @@ fn crop(size: usize, mut data: Vec<u8>, right: bool) -> Vec<u8> {
     data
 }
 
-fn compress_func(
+fn compress(
     input: Vec<u64>, /* input block(89 words) */
     r: u64,          /* rounds */
 ) -> Vec<u64> {
@@ -133,20 +133,20 @@ fn compress_func(
 
 fn mid(
     block: &[u64], /* a block for compress input(64 words) */
-    C: Vec<u64>,
+    chain_words: Vec<u64>,
     i: u64,
     p: u64,
     z: u64,
-    d: u64,          /* digest size */
-    r: u64,          /* rounds */
-    curr_level: u64, /* ??? */
-    levels: u64,     /* levels */
-    key_len: u64,    /* key len */
-    key: &[u64],     /* key vector(8 words) */
+    d: u64,       /* digest size */
+    r: u64,       /* rounds */
+    level: u64,   /* level number */
+    levels: u64,  /* levels */
+    key_len: u64, /* key len */
+    key: &[u64],  /* key vector(8 words) */
 ) -> Vec<u64> {
     assert!(block.len() == 64, "Block should be 64 words");
 
-    let u = ((curr_level & 0xff) << 56) | i & 0xffffffffffffff;
+    let u = ((level & 0xff) << 56) | i & 0xffffffffffffff;
     let v = ((r & 0xfff) << 48)
         | ((levels & 0xff) << 40)
         | ((z & 0xf) << 36)
@@ -159,25 +159,25 @@ fn mid(
         .chain(key.iter().copied())
         .chain(std::iter::once(u))
         .chain(std::iter::once(v))
-        .chain(C)
+        .chain(chain_words)
         .chain(block.iter().copied())
         .collect();
 
-    compress_func(compress_input, r)
+    compress(compress_input, r)
 }
 
 fn par(
     mut state_bytes: Vec<u8>,
-    d: u64,          /* digest size */
-    r: u64,          /* rounds */
-    curr_level: u64, /* ??? */
-    levels: u64,     /* levels */
-    key_len: u64,    /* key len */
-    key: &[u64],     /* key vector(8 words) */
+    d: u64,       /* digest size */
+    r: u64,       /* rounds */
+    level: u64,   /* level number */
+    levels: u64,  /* levels */
+    key_len: u64, /* key len */
+    key: &[u64],  /* key vector(8 words) */
 ) -> Vec<u8> {
     let mut P = 0;
     let mut blocks: Vec<Vec<u64>> = vec![];
-    let mut C = vec![];
+    let mut c = vec![];
     let z = if state_bytes.len() > BLOCK_BYTES as usize {
         0
     } else {
@@ -209,35 +209,37 @@ fn par(
             z,
             d,
             r,
-            curr_level,
+            level,
             levels,
             key_len,
             key,
         );
-        C.extend(res);
+        c.extend(res);
 
         i += 1;
     }
 
-    words_to_bytes(&C)
+    words_to_bytes(&c)
 }
 
 fn seq(
     mut state_bytes: Vec<u8>,
-    d: u64,          /* digest size */
-    r: u64,          /* rounds */
-    curr_level: u64, /* ??? */
-    levels: u64,     /* levels */
-    key_len: u64,    /* key len */
-    key: &[u64],     /* key vector(8 words) */
+    d: u64,       /* digest size */
+    r: u64,       /* rounds */
+    level: u64,   /* level number */
+    levels: u64,  /* levels */
+    key_len: u64, /* key len */
+    key: &[u64],  /* key vector(8 words) */
 ) -> Vec<u8> {
     let mut P: u64 = 0;
     let mut blocks: Vec<Vec<u64>> = vec![];
-    let mut C = vec![
+    let mut c = vec![
         0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
     ];
 
-    while state_bytes.len() < 1 || (state_bytes.len() % (BLOCK_BYTES - c) as usize) > 0 {
+    while state_bytes.len() < 1
+        || (state_bytes.len() % (BLOCK_BYTES - SEQ_CHAIN_BYTES) as usize) > 0
+    {
         state_bytes.push(0x00);
         P += 8;
     }
@@ -245,8 +247,8 @@ fn seq(
     let mut state_words = bytes_to_words(&state_bytes);
 
     while state_words.len() > 0 {
-        blocks.push(state_words[..((BLOCK_BYTES - c) as usize / 8)].to_vec());
-        state_words = state_words[((BLOCK_BYTES - c) as usize / 8)..].to_vec();
+        blocks.push(state_words[..((BLOCK_BYTES - SEQ_CHAIN_BYTES) as usize / 8)].to_vec());
+        state_words = state_words[((BLOCK_BYTES - SEQ_CHAIN_BYTES) as usize / 8)..].to_vec();
     }
 
     let mut i = 0;
@@ -255,14 +257,14 @@ fn seq(
     while i < l {
         let p = if i == blocks.len() - 1 { P } else { 0 };
         let z = if i == blocks.len() - 1 { 1 } else { 0 };
-        C = mid(
-            &blocks[i], C, i as u64, p, z, d, r, curr_level, levels, key_len, key,
+        c = mid(
+            &blocks[i], c, i as u64, p, z, d, r, level, levels, key_len, key,
         );
 
         i += 1;
     }
 
-    words_to_bytes(&C)
+    words_to_bytes(&c)
 }
 
 fn hash(digest_size: usize, data: &[u8], key: &[u8], levels: usize) -> Vec<u8> {
@@ -288,16 +290,16 @@ fn hash(digest_size: usize, data: &[u8], key: &[u8], levels: usize) -> Vec<u8> {
     };
 
     let levels = levels as u64;
-    let mut curr_level = 0;
+    let mut level = 0;
 
     loop {
-        curr_level += 1;
-        hash_state = if curr_level > levels {
+        level += 1;
+        hash_state = if level > levels {
             seq(
                 hash_state,
                 d,
                 rounds,
-                curr_level,
+                level,
                 levels,
                 key_bytes_len as u64,
                 &key_words,
@@ -307,14 +309,14 @@ fn hash(digest_size: usize, data: &[u8], key: &[u8], levels: usize) -> Vec<u8> {
                 hash_state,
                 d,
                 rounds,
-                curr_level,
+                level,
                 levels,
                 key_bytes_len as u64,
                 &key_words,
             )
         };
 
-        if hash_state.len() == c as usize {
+        if hash_state.len() == SEQ_CHAIN_BYTES as usize {
             break;
         };
     }
