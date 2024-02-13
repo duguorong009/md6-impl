@@ -1,9 +1,5 @@
 use std::cmp;
 
-fn main() {
-    println!("Hello, world!");
-}
-
 const BLOCK_BYTES: usize = 512;
 const SEQ_CHAIN_BYTES: usize = 128;
 const COMPRESS_INPUT_WORDS: usize = 89;
