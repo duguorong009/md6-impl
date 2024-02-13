@@ -33,6 +33,9 @@ const OPTIMIZE_DIFFUSION: [u64; 6] = [17, 18, 21, 31, 67, 89];
 const RIGHT_SHIFT_AMOUNTS: [u64; 16] = [10, 5, 13, 10, 11, 12, 2, 7, 14, 15, 7, 13, 11, 7, 6, 12];
 const LEFT_SHIFT_AMOUNTS: [u64; 16] = [11, 24, 9, 16, 15, 9, 27, 15, 6, 2, 29, 8, 15, 5, 31, 9];
 
+const DEFAULT_DIGEST_SIZE: usize = 512; // bits
+const DEFAULT_LEVELS: usize = 64;
+
 fn bytes_to_words(bytes: &[u8]) -> Vec<u64> {
     // Ensure the input length is a multiple of 8
     assert_eq!(bytes.len() % 8, 0, "Input length must be a multiple of 8");
@@ -134,16 +137,16 @@ fn mid(
     i: u64,
     p: u64,
     z: u64,
-    d: u64,       /* digest size */
-    r: u64,       /* rounds */
-    ell: u64,     /* ??? */
-    levels: u64,  /* levels */
-    key_len: u64, /* key len */
-    key: &[u64],  /* key vector(8 words) */
+    d: u64,          /* digest size */
+    r: u64,          /* rounds */
+    curr_level: u64, /* ??? */
+    levels: u64,     /* levels */
+    key_len: u64,    /* key len */
+    key: &[u64],     /* key vector(8 words) */
 ) -> Vec<u64> {
     assert!(block.len() == 64, "Block should be 64 words");
 
-    let u = ((ell & 0xff) << 56) | i & 0xffffffffffffff;
+    let u = ((curr_level & 0xff) << 56) | i & 0xffffffffffffff;
     let v = ((r & 0xfff) << 48)
         | ((levels & 0xff) << 40)
         | ((z & 0xf) << 36)
@@ -165,12 +168,12 @@ fn mid(
 
 fn par(
     mut state_bytes: Vec<u8>,
-    d: u64,       /* digest size */
-    r: u64,       /* rounds */
-    ell: u64,     /* ??? */
-    levels: u64,  /* levels */
-    key_len: u64, /* key len */
-    key: &[u64],  /* key vector(8 words) */
+    d: u64,          /* digest size */
+    r: u64,          /* rounds */
+    curr_level: u64, /* ??? */
+    levels: u64,     /* levels */
+    key_len: u64,    /* key len */
+    key: &[u64],     /* key vector(8 words) */
 ) -> Vec<u8> {
     let mut P = 0;
     let mut blocks: Vec<Vec<u64>> = vec![];
@@ -206,7 +209,7 @@ fn par(
             z,
             d,
             r,
-            ell,
+            curr_level,
             levels,
             key_len,
             key,
@@ -221,12 +224,12 @@ fn par(
 
 fn seq(
     mut state_bytes: Vec<u8>,
-    d: u64,       /* digest size */
-    r: u64,       /* rounds */
-    ell: u64,     /* ??? */
-    levels: u64,  /* levels */
-    key_len: u64, /* key len */
-    key: &[u64],  /* key vector(8 words) */
+    d: u64,          /* digest size */
+    r: u64,          /* rounds */
+    curr_level: u64, /* ??? */
+    levels: u64,     /* levels */
+    key_len: u64,    /* key len */
+    key: &[u64],     /* key vector(8 words) */
 ) -> Vec<u8> {
     let mut P: u64 = 0;
     let mut blocks: Vec<Vec<u64>> = vec![];
@@ -253,7 +256,7 @@ fn seq(
         let p = if i == blocks.len() - 1 { P } else { 0 };
         let z = if i == blocks.len() - 1 { 1 } else { 0 };
         C = mid(
-            &blocks[i], C, i as u64, p, z, d, r, ell, levels, key_len, key,
+            &blocks[i], C, i as u64, p, z, d, r, curr_level, levels, key_len, key,
         );
 
         i += 1;
@@ -285,16 +288,16 @@ fn hash(digest_size: usize, data: &[u8], key: &[u8], levels: usize) -> Vec<u8> {
     };
 
     let levels = levels as u64;
-    let mut ell = 0;
+    let mut curr_level = 0;
 
     loop {
-        ell += 1;
-        hash_state = if ell > levels {
+        curr_level += 1;
+        hash_state = if curr_level > levels {
             seq(
                 hash_state,
                 d,
                 rounds,
-                ell,
+                curr_level,
                 levels,
                 key_bytes_len as u64,
                 &key_words,
@@ -304,7 +307,7 @@ fn hash(digest_size: usize, data: &[u8], key: &[u8], levels: usize) -> Vec<u8> {
                 hash_state,
                 d,
                 rounds,
-                ell,
+                curr_level,
                 levels,
                 key_bytes_len as u64,
                 &key_words,
@@ -322,7 +325,7 @@ fn hash(digest_size: usize, data: &[u8], key: &[u8], levels: usize) -> Vec<u8> {
 fn prehash(msg: String, digest_size: usize, key: String, levels: usize) -> Vec<u8> {
     let msg_bytes = msg.into_bytes();
     let key_bytes = key.into_bytes();
-    let digest_size = cmp::max(1, cmp::min(digest_size, 512));
+    let digest_size = cmp::max(1, cmp::min(digest_size, DEFAULT_DIGEST_SIZE));
 
     hash(digest_size, &msg_bytes, &key_bytes, levels)
 }
@@ -334,9 +337,9 @@ fn hash_hex(
     levels: Option<usize>,
 ) -> String {
     let msg = msg.unwrap_or_default();
-    let digest_size = digest_size.unwrap_or(512);
+    let digest_size = digest_size.unwrap_or(DEFAULT_DIGEST_SIZE);
     let key = key.unwrap_or_default();
-    let levels = levels.unwrap_or(64);
+    let levels = levels.unwrap_or(DEFAULT_LEVELS);
 
     let digest = prehash(msg, digest_size, key, levels);
 
@@ -356,9 +359,9 @@ fn hash_raw(
     levels: Option<usize>,
 ) -> Vec<u8> {
     let msg = msg.unwrap_or_default();
-    let digest_size = digest_size.unwrap_or(512);
+    let digest_size = digest_size.unwrap_or(DEFAULT_DIGEST_SIZE);
     let key = key.unwrap_or_default();
-    let levels = levels.unwrap_or(64);
+    let levels = levels.unwrap_or(DEFAULT_LEVELS);
 
     prehash(msg, digest_size, key, levels)
 }
