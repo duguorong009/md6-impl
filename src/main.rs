@@ -6,7 +6,7 @@ fn main() {
 
 const BLOCK_BYTES: u64 = 512;
 const SEQ_CHAIN_BYTES: u64 = 128;
-const COMPRESSION_INPUT_WORDS: u64 = 89;
+const COMPRESS_INPUT_WORDS: u64 = 89;
 
 const ROUND_CONSTANTS_S0: u64 = 0x0123456789abcdef;
 const ROUND_CONSTANTS_MASK: u64 = 0x7311c2812425cfa0;
@@ -96,11 +96,16 @@ fn compress(
     input: Vec<u64>, /* input block(89 words) */
     r: u64,          /* rounds */
 ) -> Vec<u64> {
+    assert!(
+        input.len() == COMPRESS_INPUT_WORDS as usize,
+        "Input should be 89 words"
+    );
+
     let mut S = ROUND_CONSTANTS_S0;
     let mut output = input;
 
     let mut j = 0;
-    let mut i = COMPRESSION_INPUT_WORDS;
+    let mut i = COMPRESS_INPUT_WORDS;
 
     while j < r {
         for s in 0..16 {
@@ -132,8 +137,8 @@ fn compress(
 }
 
 fn mid(
-    block: &[u64], /* a block for compress input(64 words) */
-    chain_words: Vec<u64>,
+    block: &[u64],         /* a block for compress input */
+    chain_words: Vec<u64>, /* chaining variable, 0 for par, 15 for seq mode */
     i: u64,
     p: u64,
     z: u64,
@@ -144,8 +149,6 @@ fn mid(
     key_len: u64, /* key len */
     key: &[u64],  /* key vector(8 words) */
 ) -> Vec<u64> {
-    assert!(block.len() == 64, "Block should be 64 words");
-
     let u = ((level & 0xff) << 56) | i & 0xffffffffffffff;
     let v = ((r & 0xfff) << 48)
         | ((levels & 0xff) << 40)
@@ -269,7 +272,7 @@ fn seq(
 
 fn hash(digest_size: usize, data: &[u8], key: &[u8], levels: usize) -> Vec<u8> {
     let d = digest_size as u64;
-    let mut hash_state = data.to_vec();
+    let mut state_bytes = data.to_vec();
 
     let key_bytes_len = key.len();
 
@@ -294,9 +297,9 @@ fn hash(digest_size: usize, data: &[u8], key: &[u8], levels: usize) -> Vec<u8> {
 
     loop {
         level += 1;
-        hash_state = if level > levels {
+        state_bytes = if level > levels {
             seq(
-                hash_state,
+                state_bytes,
                 d,
                 rounds,
                 level,
@@ -306,7 +309,7 @@ fn hash(digest_size: usize, data: &[u8], key: &[u8], levels: usize) -> Vec<u8> {
             )
         } else {
             par(
-                hash_state,
+                state_bytes,
                 d,
                 rounds,
                 level,
@@ -316,12 +319,12 @@ fn hash(digest_size: usize, data: &[u8], key: &[u8], levels: usize) -> Vec<u8> {
             )
         };
 
-        if hash_state.len() == SEQ_CHAIN_BYTES as usize {
+        if state_bytes.len() == SEQ_CHAIN_BYTES as usize {
             break;
         };
     }
 
-    crop(d as usize, hash_state, true)
+    crop(d as usize, state_bytes, true)
 }
 
 fn prehash(msg: String, digest_size: usize, key: String, levels: usize) -> Vec<u8> {
