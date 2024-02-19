@@ -3,4 +3,4 @@ Paper: https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=c03d3c666b
 
 TODO: 
 - refactor the hash function similar to [c++ version](https://github.com/brbsh/samp-plugin-md6/tree/master)
-- implement the digest trait
+- implement the digest trait (similar to [md5](https://github.com/RustCrypto/hashes/tree/master/md5))
