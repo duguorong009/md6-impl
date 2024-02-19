@@ -1,3 +1,5 @@
+const MD6_DEFAULT_L: usize = 64;
+
 #[allow(non_snake_case)]
 struct MD6State {
     d: usize,          /* desired hash bit length. 1 <= d <= 512.      */
@@ -48,10 +50,10 @@ struct MD6State {
 
 impl MD6State {
     pub fn init(d: usize) -> Self {
-        todo!()
+        Self::full_init(d, None, 0, MD6_DEFAULT_L, md6_default_r(d, 0))
     }
 
-    pub fn full_init(d: usize, key: Option<Vec<u8>>, keylen: Option<usize>, L: Option<usize>, r: Option<usize>) -> Self {
+    pub fn full_init(d: usize, key: Option<Vec<u8>>, keylen: usize, L: usize, r: usize) -> Self {
         todo!()
     }
 
@@ -62,4 +64,12 @@ impl MD6State {
     pub fn finalize(&self, hashval: &mut Vec<u8>) {
         todo!()
     }
+}
+
+fn md6_default_r(d: usize, keylen: usize) -> usize {
+    let mut r = 40 + (d / 4);
+    if keylen > 0 {
+        r = 80.max(r);
+    }
+    r
 }
