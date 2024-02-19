@@ -45,3 +45,21 @@ struct MD6State {
     /*    index of the node B[ ell ] on this level (0,1,...)     */
     /* when it is output   */
 }
+
+impl MD6State {
+    pub fn init(d: usize) -> Self {
+        todo!()
+    }
+
+    pub fn full_init(d: usize, key: Option<Vec<u8>>, keylen: Option<usize>, L: Option<usize>, r: Option<usize>) -> Self {
+        todo!()
+    }
+
+    pub fn update(&mut self, data: Vec<u8>, databitlen: u128) {
+        todo!()
+    }
+
+    pub fn finalize(&self, hashval: &mut Vec<u8>) {
+        todo!()
+    }
+}
