@@ -118,6 +118,22 @@ impl MD6State {
     pub fn finalize(&self, hashval: &mut Vec<u8>) {
         todo!()
     }
+
+    fn compress_block(&mut self, C: Vec<u64>, ell: usize, z: usize) {
+        todo!()
+    }
+
+    fn process(&mut self, ell: usize, finall: usize) {
+        todo!()
+    }
+
+    fn compute_hex_hashval(&mut self) {
+        todo!()
+    }
+
+    fn trim_hashval(&mut self) {
+        todo!()
+    }
 }
 
 fn md6_default_r(d: usize, keylen: usize) -> usize {
