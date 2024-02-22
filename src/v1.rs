@@ -1,4 +1,37 @@
-const MD6_DEFAULT_L: usize = 64;
+
+/* MD6 constants independent of mode of operation (from md6.h) */
+const md6_default_L: usize = 64;
+const w: usize = 64; // md6_w: bits in a word
+const n: usize = 89; // md6_n: # words in compression input
+const c: usize = 16; // md6_c: # words in compression output
+
+/* MD6 constants needed for mode of operation                  */
+const q: usize = 15; // md6_q: # words in Q
+const k: usize = 8; // md6_k: # words in key (aka salt)
+const u: usize = 1; // md6_u: # words in unique node ID
+const v: usize = 1; // md6_v: # words in control word
+const b: usize = 64; // md6_b: # data words per compression block
+
+/* MD6 Constant Vector Q
+** Q = initial 960 bits of fractional part of sqrt(6)
+*/
+const Q: [u64; 15] = [
+    0x7311c2812425cfa0,
+    0x6432286434aac8e7,
+    0xb60450e9ef68b7c1,
+    0xe8fb23908d9f06f1,
+    0xdd2e76cba691e5bf,
+    0x0cd0d63b2c30bc41,
+    0x1f8ccf6823058f8a,
+    0x54e5ed5b88e3775d,
+    0x4ad12aae0a6d6031,
+    0x3e7f16bb88222e0d,
+    0x8af8671d3fb50c2c,
+    0x995ad1178bd25c31,
+    0xc878c1dd04c4b633,
+    0x3b72066c7a1552ac,
+    0x0d6f3522631effcb,
+];
 
 #[allow(non_snake_case)]
 #[derive(Debug)]
@@ -51,7 +84,7 @@ struct MD6State {
 
 impl MD6State {
     pub fn init(d: usize) -> Self {
-        Self::full_init(d, None, 0, MD6_DEFAULT_L, md6_default_r(d, 0))
+        Self::full_init(d, None, 0, md6_default_L, md6_default_r(d, 0))
     }
 
     pub fn full_init(d: usize, key: Option<Vec<u8>>, keylen: usize, L: usize, r: usize) -> Self {
@@ -66,9 +99,9 @@ impl MD6State {
             for i in 0..64.min(keylen) {
                 k_bytes[i] = key[i];
             }
-            let k = bytes_to_words(&k_bytes);
+            let k_words = bytes_to_words(&k_bytes);
 
-            (k.try_into().unwrap(), keylen)
+            (k_words.try_into().unwrap(), keylen)
         } else {
             ([0u64; 8], 0)
         };
