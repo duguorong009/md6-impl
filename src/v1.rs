@@ -16,8 +16,8 @@ struct MD6State {
     /* e.g. unsigned char hexhashval[129];                       */
     /* zero-terminated string representing hex value of hashval  */
     initialized: bool,       /* zero, then one after md6_init called */
-    bits_processed: u128,    /* bits processed so far */
-    compression_calls: u128, /* compression function calls made */
+    bits_processed: usize,    /* bits processed so far */
+    compression_calls: usize, /* compression function calls made */
     finalized: bool,         /* zero, then one after md6_final called */
 
     K: [u64; 8], /* k-word (8 word) key (aka "salt") for this instance of md6 */
