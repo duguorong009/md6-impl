@@ -1,3 +1,4 @@
+type md6_word = u64;
 
 /* MD6 constants independent of mode of operation (from md6.h) */
 const md6_default_L: usize = 64;
@@ -12,10 +13,12 @@ const u: usize = 1; // md6_u: # words in unique node ID
 const v: usize = 1; // md6_v: # words in control word
 const b: usize = 64; // md6_b: # data words per compression block
 
+const md6_max_stack_height: usize = 29;
+
 /* MD6 Constant Vector Q
 ** Q = initial 960 bits of fractional part of sqrt(6)
 */
-const Q: [u64; 15] = [
+const Q: [md6_word; 15] = [
     0x7311c2812425cfa0,
     0x6432286434aac8e7,
     0xb60450e9ef68b7c1,
@@ -39,13 +42,13 @@ struct MD6State {
     d: usize,          /* desired hash bit length. 1 <= d <= 512.      */
     hashbitlen: usize, /* hashbitlen is the same as d; for NIST API  */
 
-    hashval: [u8; 128],
+    hashval: [u8; c * (w / 8)],
     /* e.g. unsigned char hashval[128]                           */
     /* contains hashval after call to md6_final                  */
     /* hashval appears in first floor(d/8) bytes, with           */
     /* remaining (d mod 8) bits (if any) appearing in            */
     /* high-order bit positions of hashval[1+floor(d/8)].        */
-    hexhashval: [u8; 129],
+    hexhashval: [u8; c * (w / 8) + 1],
     /* e.g. unsigned char hexhashval[129];                       */
     /* zero-terminated string representing hex value of hashval  */
     initialized: bool,       /* zero, then one after md6_init called */
@@ -53,7 +56,7 @@ struct MD6State {
     compression_calls: usize, /* compression function calls made */
     finalized: bool,         /* zero, then one after md6_final called */
 
-    K: [u64; 8], /* k-word (8 word) key (aka "salt") for this instance of md6 */
+    K: [md6_word; k], /* k-word (8 word) key (aka "salt") for this instance of md6 */
 
     keylen: usize, /* number of bytes in key K. 0<=keylen<=k*(w/8)              */
 
@@ -65,18 +68,18 @@ struct MD6State {
     /* Number of rounds. 0 <= r <= 255                           */
     top: usize,
     /* index of block corresponding to top of stack              */
-    B: [[u64; 64]; 29],
+    B: [[md6_word; b]; md6_max_stack_height],
     /* md6_word B[29][64]                                        */
     /* stack of 29 64-word partial blocks waiting to be          */
     /* completed and compressed.                                 */
     /* B[1] is for compressing text data (input);                */
     /* B[ell] corresponds to node at level ell in the tree.      */
-    bits: [usize; 29],
+    bits: [usize; md6_max_stack_height],
     /* bits[ell] =                                               */
     /*    number of bits already placed in B[ell]                */
     /*    for 1 <= ell < max_stack_height                        */
     /* 0 <= bits[ell] <= b*w                                     */
-    i_for_level: [u64; 29],
+    i_for_level: [u64; md6_max_stack_height],
     /* i_for_level[ell] =                                        */
     /*    index of the node B[ ell ] on this level (0,1,...)     */
     /* when it is output   */
@@ -144,8 +147,18 @@ impl MD6State {
         }
     }
 
-    pub fn update(&mut self, data: Vec<u8>, databitlen: u128) {
-        todo!()
+    pub fn update(&mut self, data: Vec<u8>, databitlen: usize) {
+        assert!(self.initialized, "state not init");
+        assert!(!data.is_empty(), "null data");
+
+        let mut portion_size = 0;
+        let mut j = 0;
+        while j < databitlen {
+            portion_size = (databitlen - j).min(64 * 64 - self.bits[1]);
+            if portion_size % 8 == 0 && self.bits[1] % 8 == 0 && j % 8 == 0 {
+                todo!()
+            }
+        }
     }
 
     pub fn finalize(&self, hashval: &mut Vec<u8>) {
