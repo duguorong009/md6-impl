@@ -174,7 +174,14 @@ impl MD6State {
     }
 
     fn compute_hex_hashval(&mut self) {
-        todo!()
+        let hex_digits = vec!['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'];
+
+        for i in 0..((self.d + 7) / 8) {
+            self.hexhashval[2 * i] = hex_digits[((self.hashval[i] >> 4) & 0xf) as usize] as u8;
+            self.hexhashval[2 * i + 1] = hex_digits[((self.hashval[i]) & 0xf) as usize] as u8;
+        }
+
+        self.hexhashval[((self.d + 3) / 4) as usize] = 0;
     }
 
     fn trim_hashval(&mut self) {
