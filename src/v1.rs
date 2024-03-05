@@ -185,7 +185,25 @@ impl MD6State {
     }
 
     fn trim_hashval(&mut self) {
-        todo!()
+        let full_or_partial_bytes = (self.d + 7) / 8;
+        let bits = self.d % 8;
+
+        for i in 0..full_or_partial_bytes {
+            self.hashval[i] = self.hashval[(c * (w / 8) - full_or_partial_bytes + i) as usize];
+        }
+
+        for i in full_or_partial_bytes..(c * (w / 8)) {
+            self.hashval[i] = 0;
+        }
+
+        if bits > 0 {
+            for i in 0..full_or_partial_bytes {
+                self.hashval[i] <<= 8 - bits;
+                if (i + 1) < c * (w / 8) {
+                    self.hashval[i] |= self.hashval[i + 1] >> bits;
+                }
+            }
+        }
     }
 }
 
