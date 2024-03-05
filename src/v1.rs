@@ -122,7 +122,7 @@ impl MD6State {
         let top = 1;
 
         let mut bits = [0; 29];
-        if L == 0 { bits[1] = 16 * 64 };
+        if L == 0 { bits[1] = c * w };
 
         let B = [[0; 64]; 29];
         let i_for_level = [0; 29];
@@ -154,7 +154,7 @@ impl MD6State {
         let mut portion_size = 0;
         let mut j = 0;
         while j < databitlen {
-            portion_size = (databitlen - j).min(64 * 64 - self.bits[1]);
+            portion_size = (databitlen - j).min(b * w - self.bits[1]);
             if portion_size % 8 == 0 && self.bits[1] % 8 == 0 && j % 8 == 0 {
                 todo!()
             }
