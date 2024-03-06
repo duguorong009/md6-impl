@@ -51,10 +51,10 @@ struct MD6State {
     hexhashval: [u8; c * (w / 8) + 1],
     /* e.g. unsigned char hexhashval[129];                       */
     /* zero-terminated string representing hex value of hashval  */
-    initialized: bool,       /* zero, then one after md6_init called */
+    initialized: bool,        /* zero, then one after md6_init called */
     bits_processed: usize,    /* bits processed so far */
     compression_calls: usize, /* compression function calls made */
-    finalized: bool,         /* zero, then one after md6_final called */
+    finalized: bool,          /* zero, then one after md6_final called */
 
     K: [md6_word; k], /* k-word (8 word) key (aka "salt") for this instance of md6 */
 
@@ -94,7 +94,7 @@ impl MD6State {
         if key.is_some() {
             assert!(keylen <= 8 * (64 / 8), "bad keylen");
         }
-        assert!( d < 1 || d > 512 || d > 64 * 16 / 2, "bad hashlen");
+        assert!(d < 1 || d > 512 || d > 64 * 16 / 2, "bad hashlen");
 
         let (K, keylen) = if key.is_some() && keylen > 0 {
             let key = key.unwrap();
@@ -109,8 +109,8 @@ impl MD6State {
             ([0u64; 8], 0)
         };
 
-        assert!( L <= 255, "bad L");
-        assert!( r <= 255, "bad r");
+        assert!(L <= 255, "bad L");
+        assert!(r <= 255, "bad r");
 
         let initialized = true;
         let finalized = false;
@@ -122,7 +122,9 @@ impl MD6State {
         let top = 1;
 
         let mut bits = [0; 29];
-        if L == 0 { bits[1] = c * w };
+        if L == 0 {
+            bits[1] = c * w
+        };
 
         let B = [[0; 64]; 29];
         let i_for_level = [0; 29];
@@ -169,12 +171,12 @@ impl MD6State {
 
         // "finalize" was previously called
         if self.finalized {
-            return
+            return;
         }
 
         let mut ell;
         // force any processing that needs doing
-        if self.top == 1 { 
+        if self.top == 1 {
             ell = 1;
         } else {
             ell = 1;
@@ -186,7 +188,7 @@ impl MD6State {
             }
         }
 
-        // process starting at level ell, up to root 
+        // process starting at level ell, up to root
         self.process(ell, 1);
 
         // "process" has saved final chaining value in self.hashval
@@ -200,7 +202,6 @@ impl MD6State {
         self.compute_hex_hashval();
 
         self.finalized = true;
-
     }
 
     fn compress_block(&mut self, C: Vec<u64>, ell: usize, z: usize) {
@@ -212,7 +213,9 @@ impl MD6State {
     }
 
     fn compute_hex_hashval(&mut self) {
-        let hex_digits = vec!['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'];
+        let hex_digits = vec![
+            '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
+        ];
 
         for i in 0..((self.d + 7) / 8) {
             self.hexhashval[2 * i] = hex_digits[((self.hashval[i] >> 4) & 0xf) as usize] as u8;
@@ -243,6 +246,21 @@ impl MD6State {
             }
         }
     }
+}
+
+pub fn md6_full_hash(
+    d: usize,
+    data: Vec<u8>,
+    databitlen: usize,
+    key: Option<Vec<u8>>,
+    keylen: usize,
+    L: usize,
+    r: usize,
+    hashval: &mut Vec<u8>,
+) {
+    let mut st = MD6State::full_init(d, key, keylen, L, r);
+    st.update(data, databitlen);
+    st.finalize(hashval);
 }
 
 fn md6_default_r(d: usize, keylen: usize) -> usize {
