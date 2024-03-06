@@ -263,6 +263,10 @@ pub fn md6_full_hash(
     st.finalize(hashval);
 }
 
+pub fn md6_hash(d: usize, data: Vec<u8>, databitlen: usize, hashval: &mut Vec<u8>) {
+    md6_full_hash(d, data, databitlen, None, 0, md6_default_L, md6_default_r(d, 0), hashval);
+}
+
 fn md6_default_r(d: usize, keylen: usize) -> usize {
     let mut r = 40 + (d / 4);
     if keylen > 0 {
