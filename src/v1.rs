@@ -161,8 +161,46 @@ impl MD6State {
         }
     }
 
-    pub fn finalize(&self, hashval: &mut Vec<u8>) {
-        todo!()
+    pub fn finalize(&mut self, hashval: &mut Vec<u8>) {
+        // check that input values are sensible
+        if !self.initialized {
+            panic!("state not init");
+        }
+
+        // "finalize" was previously called
+        if self.finalized {
+            return
+        }
+
+        let mut ell;
+        // force any processing that needs doing
+        if self.top == 1 { 
+            ell = 1;
+        } else {
+            ell = 1;
+            while ell <= self.top {
+                if self.bits[ell as usize] > 0 {
+                    break;
+                }
+                ell += 1;
+            }
+        }
+
+        // process starting at level ell, up to root 
+        self.process(ell, 1);
+
+        // "process" has saved final chaining value in self.hashval
+        self.trim_hashval();
+
+        if !hashval.is_empty() {
+            // todo
+            //   if (hashval != NULL) memcpy( hashval, st->hashval, (st->d+7)/8 );
+        }
+
+        self.compute_hex_hashval();
+
+        self.finalized = true;
+
     }
 
     fn compress_block(&mut self, C: Vec<u64>, ell: usize, z: usize) {
