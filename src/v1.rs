@@ -204,8 +204,63 @@ impl MD6State {
         self.finalized = true;
     }
 
-    fn compress_block(&mut self, C: &mut Vec<u64>, ell: usize, z: usize) {
+    fn standard_compress(
+        &mut self,
+        C: &mut Vec<md6_word>,
+        K: [md6_word; k],
+        ell: usize,
+        i: u64,
+        r: usize,
+        L: usize,
+        z: usize,
+        p: usize,
+        keylen: usize,
+        d: usize,
+        B: [md6_word; b],
+    ) {
         todo!()
+    }
+
+    fn compress_block(&mut self, C: &mut Vec<u64>, ell: usize, z: usize) {
+        // check that input values are sensible
+        if !self.initialized {
+            panic!("Not init");
+        }
+        assert!(ell < md6_max_stack_height + 1, "stackoverflow");
+
+        self.compression_calls += 1;
+
+        if ell == 1 {
+            /* leaf; hashing data; reverse bytes if nec. */
+            if ell < self.L + 1 {
+                /* PAR (tree) node */
+                self.B[ell].reverse();
+            } else {
+                /* SEQ (sequential) node; don't reverse chaining vars */
+                self.B[ell][c..].reverse();
+            }
+        }
+
+        let p = b * w - self.bits[ell]; /* number of pad bits */
+
+        self.standard_compress(
+            C,
+            self.K,
+            ell,
+            self.i_for_level[ell],
+            self.r,
+            self.L,
+            z,
+            p,
+            self.keylen,
+            self.d,
+            self.B[ell],
+        );
+
+        self.bits[ell] = 0; /* clear bits used count this level */
+        self.i_for_level[ell] += 1;
+
+        self.B[ell] = [0; w]; /* clear B[ell] */
     }
 
     fn process(&mut self, ell: usize, is_final: bool) {
@@ -219,9 +274,10 @@ impl MD6State {
             }
         } else {
             if ell == self.top {
-                if ell == self.L + 1 { /* SEQ mode */
+                if ell == self.L + 1 {
+                    /* SEQ mode */
                     if self.bits[ell] == c * w && self.i_for_level[ell] > 0 {
-                        return
+                        return;
                     }
                 } else {
                     if ell > 1 && self.bits[ell] == c * w {
@@ -234,13 +290,12 @@ impl MD6State {
         /* compress block at this level; result goes into C */
         /* first set z to 1 iff this is the very last compression */
         let mut C = vec![];
-        let z = if is_final && ell == self.top {
-            1
-        } else {0};
+        let z = if is_final && ell == self.top { 1 } else { 0 };
 
         self.compress_block(&mut C, ell, z);
 
-        if z == 1 { /* save final chaining value in st->hashval */
+        if z == 1 {
+            /* save final chaining value in st->hashval */
             self.hashval = words_to_bytes(&C).try_into().unwrap();
             return;
         }
@@ -248,20 +303,23 @@ impl MD6State {
         /* where should result go? To "next level" */
         let next_level = (ell + 1).min(self.L + 1);
 
-        /* Start sequential mode with IV=0 at that level if necessary 
-        ** (All that is needed is to set bits[next_level] to c*w, 
-        ** since the bits themselves are already zeroed, either
-        ** initially, or at the end of md6_compress_block.)
-        */
-        if next_level == self.L + 1 && self.i_for_level[next_level] == 0 && self.bits[next_level] == 0 {
+        /* Start sequential mode with IV=0 at that level if necessary
+         ** (All that is needed is to set bits[next_level] to c*w,
+         ** since the bits themselves are already zeroed, either
+         ** initially, or at the end of md6_compress_block.)
+         */
+        if next_level == self.L + 1
+            && self.i_for_level[next_level] == 0
+            && self.bits[next_level] == 0
+        {
             self.bits[next_level] = c * w;
         }
 
         /* now copy C onto next level */
-        self.B[next_level] = C.try_into().unwrap();  // TODO: check "memcpy" later
+        self.B[next_level] = C.try_into().unwrap(); // TODO: check "memcpy" later
         self.bits[next_level] += c * w;
 
-        if next_level > self.top { 
+        if next_level > self.top {
             self.top = next_level;
         }
 
@@ -320,7 +378,16 @@ pub fn md6_full_hash(
 }
 
 pub fn md6_hash(d: usize, data: Vec<u8>, databitlen: usize, hashval: &mut Vec<u8>) {
-    md6_full_hash(d, data, databitlen, None, 0, md6_default_L, md6_default_r(d, 0), hashval);
+    md6_full_hash(
+        d,
+        data,
+        databitlen,
+        None,
+        0,
+        md6_default_L,
+        md6_default_r(d, 0),
+        hashval,
+    );
 }
 
 fn md6_default_r(d: usize, keylen: usize) -> usize {
