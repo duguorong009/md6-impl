@@ -36,6 +36,9 @@ const Q: [md6_word; 15] = [
     0x0d6f3522631effcb,
 ];
 
+const md6_n: usize = 89;
+const md6_max_r: usize = 255;
+
 #[allow(non_snake_case)]
 #[derive(Debug)]
 struct MD6State {
@@ -218,6 +221,31 @@ impl MD6State {
         d: usize,
         B: [md6_word; b],
     ) {
+        let mut N: Vec<md6_word> = vec![0; md6_n];
+        let mut A: Vec<md6_word> = vec![0; 5000];
+
+        // check that input values are sensible
+        assert!(!C.is_empty());
+        assert!(!B.is_empty());
+        assert!(r < md6_max_r);
+        assert!(L < 255);
+        assert!(ell < 255);
+        assert!(p < b * w);
+        assert!(d == 0 || d > c * w / 2);
+        assert!(!K.is_empty());
+        assert!(!Q.is_empty());
+
+        /* pack components into N for compression */
+        self.pack(N,Q,K,ell,i,r,L,z,p,keylen,d,B);
+
+        self.compress(C, &mut N, r, &mut A);
+    }
+
+    fn pack(&mut self, ) {
+        todo!()
+    }
+
+    fn compress(&mut self, C: &mut Vec<md6_word>, N: &mut Vec<md6_word>, r: usize, A: &mut Vec<md6_word>) {
         todo!()
     }
 
