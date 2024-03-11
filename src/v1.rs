@@ -189,7 +189,7 @@ impl MD6State {
         }
 
         // process starting at level ell, up to root
-        self.process(ell, 1);
+        self.process(ell, true);
 
         // "process" has saved final chaining value in self.hashval
         self.trim_hashval();
@@ -204,12 +204,68 @@ impl MD6State {
         self.finalized = true;
     }
 
-    fn compress_block(&mut self, C: Vec<u64>, ell: usize, z: usize) {
+    fn compress_block(&mut self, C: &mut Vec<u64>, ell: usize, z: usize) {
         todo!()
     }
 
-    fn process(&mut self, ell: usize, finall: usize) {
-        todo!()
+    fn process(&mut self, ell: usize, is_final: bool) {
+        if !self.initialized {
+            panic!("Not initialized");
+        }
+
+        if !is_final {
+            if self.bits[ell] < b * w {
+                return;
+            }
+        } else {
+            if ell == self.top {
+                if ell == self.L + 1 { /* SEQ mode */
+                    if self.bits[ell] == c * w && self.i_for_level[ell] > 0 {
+                        return
+                    }
+                } else {
+                    if ell > 1 && self.bits[ell] == c * w {
+                        return;
+                    }
+                }
+            }
+        }
+
+        /* compress block at this level; result goes into C */
+        /* first set z to 1 iff this is the very last compression */
+        let mut C = vec![];
+        let z = if is_final && ell == self.top {
+            1
+        } else {0};
+
+        self.compress_block(&mut C, ell, z);
+
+        if z == 1 { /* save final chaining value in st->hashval */
+            self.hashval = words_to_bytes(&C).try_into().unwrap();
+            return;
+        }
+
+        /* where should result go? To "next level" */
+        let next_level = (ell + 1).min(self.L + 1);
+
+        /* Start sequential mode with IV=0 at that level if necessary 
+        ** (All that is needed is to set bits[next_level] to c*w, 
+        ** since the bits themselves are already zeroed, either
+        ** initially, or at the end of md6_compress_block.)
+        */
+        if next_level == self.L + 1 && self.i_for_level[next_level] == 0 && self.bits[next_level] == 0 {
+            self.bits[next_level] = c * w;
+        }
+
+        /* now copy C onto next level */
+        self.B[next_level] = C.try_into().unwrap();  // TODO: check "memcpy" later
+        self.bits[next_level] += c * w;
+
+        if next_level > self.top { 
+            self.top = next_level;
+        }
+
+        self.process(next_level, is_final);
     }
 
     fn compute_hex_hashval(&mut self) {
@@ -294,4 +350,20 @@ fn bytes_to_words(bytes: &[u8]) -> Vec<u64> {
     }
 
     words
+}
+
+fn words_to_bytes(words: &[u64]) -> Vec<u8> {
+    // Create an empty vector to store the u8 values
+    let mut bytes = Vec::with_capacity(words.len() * 8);
+
+    // Iterate over the u64 values in the words vector
+    for &word in words {
+        // Extract bytes from the u64 value in big-endian order
+        for shift in (0..8).rev() {
+            let byte = (word >> (shift * 8)) as u8;
+            bytes.push(byte);
+        }
+    }
+
+    bytes
 }
