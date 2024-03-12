@@ -236,16 +236,18 @@ impl MD6State {
         assert!(!Q.is_empty());
 
         /* pack components into N for compression */
-        self.pack(N,Q,K,ell,i,r,L,z,p,keylen,d,B);
+        md6_pack(&mut N, K, ell, i, r, L, z, p, keylen, d, B);
 
         self.compress(C, &mut N, r, &mut A);
     }
 
-    fn pack(&mut self, ) {
-        todo!()
-    }
-
-    fn compress(&mut self, C: &mut Vec<md6_word>, N: &mut Vec<md6_word>, r: usize, A: &mut Vec<md6_word>) {
+    fn compress(
+        &mut self,
+        C: &mut Vec<md6_word>,
+        N: &mut Vec<md6_word>,
+        r: usize,
+        A: &mut Vec<md6_word>,
+    ) {
         todo!()
     }
 
@@ -461,4 +463,56 @@ fn words_to_bytes(words: &[u64]) -> Vec<u8> {
     }
 
     bytes
+}
+
+fn md6_make_nodeID(ell: usize, i: u64) -> u64 {
+    (ell as u64) << 56 | i
+}
+
+fn md6_make_control_word(r: usize, L: usize, z: usize, p: usize, keylen: usize, d: usize) -> u64 {
+    (r as u64) << 48
+        | (L as u64) << 40
+        | (z as u64) << 36
+        | (p as u64) << 20
+        | (keylen as u64) << 12
+        | (d as u64)
+}
+
+fn md6_pack(
+    N: &mut Vec<u64>,
+    K: [md6_word; k],
+    ell: usize,
+    i: u64,
+    r: usize,
+    L: usize,
+    z: usize,
+    p: usize,
+    keylen: usize,
+    d: usize,
+    B: [md6_word; 64],
+) {
+    let mut ni = 0;
+
+    for j in 0..q {
+        N[ni] = Q[j];
+        ni += 1;
+    }
+
+    for j in 0..k {
+        N[ni] = K[j];
+        ni += 1;
+    }
+
+    let U = md6_make_nodeID(ell, i);
+    N[ni] = U;
+    ni += u;
+
+    let V = md6_make_control_word(r, L, z, p, keylen, d);
+    N[ni] += V;
+    ni += v;
+
+    for j in 0..b {
+        N[ni] = B[j];
+        ni += 1;
+    }
 }
