@@ -15,6 +15,16 @@ const b: usize = 64; // md6_b: # data words per compression block
 
 const md6_max_stack_height: usize = 29;
 
+const S0: u64 = 0x0123456789abcdef;
+const SMASK: u64 = 0x7311c2812425cfa0;
+
+const t0: usize = 17;
+const t1: usize = 18;
+const t2: usize = 21;
+const t3: usize = 31;
+const t4: usize = 67;
+const t5: usize = 89;
+
 /* MD6 Constant Vector Q
 ** Q = initial 960 bits of fractional part of sqrt(6)
 */
@@ -530,5 +540,43 @@ fn md6_compress(
 }
 
 fn md6_main_compression_loop(A: &mut Vec<md6_word>, r: usize) {
-    todo!()
+    let mut S = S0;
+
+    macro_rules! loop_body {
+        ($rs: expr, $ls: expr, $step: expr, $S: expr, $i: expr) => {
+            let mut x = $S;
+            x ^= A[$i + $step - t5];
+            x ^= A[$i + $step - t0];
+            x ^= (A[$i + $step - t1] & A[$i + $step - t2]);
+            x ^= (A[$i + $step - t3] & A[$i + $step - t4]);
+            x ^= x >> $rs;
+            A[$i + $step] = x ^ (x << $ls);
+        };
+    }
+
+    let mut i = n;
+    let mut j = 0;
+    while j < r * c {
+        loop_body!(10, 11, 0, S, i);
+        loop_body!(10,11, 0, S, i);
+        loop_body!( 5,24, 1, S, i);
+        loop_body!(13, 9, 2, S, i);
+        loop_body!(10,16, 3, S, i);
+        loop_body!(11,15, 4, S, i);
+        loop_body!(12, 9, 5, S, i);
+        loop_body!( 2,27, 6, S, i);
+        loop_body!( 7,15, 7, S, i);
+        loop_body!(14, 6, 8, S, i);
+        loop_body!(15, 2, 9, S, i);
+        loop_body!( 7,29,10, S, i);
+        loop_body!(13, 8,11, S, i);
+        loop_body!(11,15,12, S, i);
+        loop_body!( 7, 5,13, S, i);
+        loop_body!( 6,31,14, S, i);
+        loop_body!(12, 9,15, S, i);
+
+        S = (S << 1) ^ (S >> (w - 1)) ^ (S & SMASK);
+        i += 16;
+        j += c;
+    }
 }
