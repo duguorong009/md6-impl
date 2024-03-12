@@ -208,8 +208,10 @@ impl MD6State {
         self.trim_hashval();
 
         if !hashval.is_empty() {
-            // todo
-            //   if (hashval != NULL) memcpy( hashval, st->hashval, (st->d+7)/8 );
+            for i in 0..self.hashval.len() {
+                hashval[i] = self.hashval[i];
+            }
+
         }
 
         self.compute_hex_hashval();
