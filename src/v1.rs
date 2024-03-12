@@ -238,17 +238,7 @@ impl MD6State {
         /* pack components into N for compression */
         md6_pack(&mut N, K, ell, i, r, L, z, p, keylen, d, B);
 
-        self.compress(C, &mut N, r, &mut A);
-    }
-
-    fn compress(
-        &mut self,
-        C: &mut Vec<md6_word>,
-        N: &mut Vec<md6_word>,
-        r: usize,
-        A: &mut Vec<md6_word>,
-    ) {
-        todo!()
+        md6_compress(C, &mut N, r, &mut A);
     }
 
     fn compress_block(&mut self, C: &mut Vec<u64>, ell: usize, z: usize) {
@@ -515,4 +505,30 @@ fn md6_pack(
         N[ni] = B[j];
         ni += 1;
     }
+}
+
+fn md6_compress(
+    C: &mut Vec<md6_word>,
+    N: &mut Vec<md6_word>,
+    r: usize,
+    A: &mut Vec<md6_word>,
+) {
+    assert!(!N.is_empty());
+    assert!(!C.is_empty());
+    assert!(r <= md6_max_r);
+    assert!(!A.is_empty());
+
+    for i in 0..N.len() {
+        A[i] = N[i];
+    }
+
+    md6_main_compression_loop(A, r);
+
+    for i in 0..c {
+        C[i] = A[i + ((r - 1) * c + n)];
+    }
+}
+
+fn md6_main_compression_loop(A: &mut Vec<md6_word>, r: usize) {
+    todo!()
 }
