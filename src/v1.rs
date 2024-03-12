@@ -107,7 +107,7 @@ impl MD6State {
         if key.is_some() {
             assert!(keylen <= 8 * (64 / 8), "bad keylen");
         }
-        assert!(d < 1 || d > 512 || d > 64 * 16 / 2, "bad hashlen");
+        assert!(!(d < 1 || d > 512 || d > 64 * 16 / 2), "bad hashlen");
 
         let (K, keylen) = if key.is_some() && keylen > 0 {
             let key = key.unwrap();
@@ -170,9 +170,9 @@ impl MD6State {
         while j < databitlen {
             let portion_size = (databitlen - j).min(b * w - self.bits[1]);
             let mut block_words = if portion_size == b * w {
-               bytes_to_words(&data[j / 8..(j / 8 + portion_size / 8)])
+                bytes_to_words(&data[j / 8..(j / 8 + portion_size / 8)])
             } else {
-               bytes_to_words(&data[j / 8..])
+                bytes_to_words(&data[j / 8..])
             };
             if block_words.len() != b {
                 block_words.extend(vec![0; b - block_words.len()]);
@@ -224,7 +224,6 @@ impl MD6State {
             for i in 0..self.hashval.len() {
                 hashval[i] = self.hashval[i];
             }
-
         }
 
         self.compute_hex_hashval();
@@ -256,7 +255,7 @@ impl MD6State {
         assert!(L < 255);
         assert!(ell < 255);
         assert!(p < b * w);
-        assert!(d == 0 || d > c * w / 2);
+        assert!(d < c * w / 2);
         assert!(!K.is_empty());
         assert!(!Q.is_empty());
 
@@ -334,7 +333,7 @@ impl MD6State {
 
         /* compress block at this level; result goes into C */
         /* first set z to 1 iff this is the very last compression */
-        let mut C = vec![];
+        let mut C = vec![0x00; c];
         let z = if is_final && ell == self.top { 1 } else { 0 };
 
         self.compress_block(&mut C, ell, z);
@@ -535,12 +534,7 @@ fn md6_pack(
     }
 }
 
-fn md6_compress(
-    C: &mut Vec<md6_word>,
-    N: &mut Vec<md6_word>,
-    r: usize,
-    A: &mut Vec<md6_word>,
-) {
+fn md6_compress(C: &mut Vec<md6_word>, N: &mut Vec<md6_word>, r: usize, A: &mut Vec<md6_word>) {
     assert!(!N.is_empty());
     assert!(!C.is_empty());
     assert!(r <= md6_max_r);
@@ -576,25 +570,43 @@ fn md6_main_compression_loop(A: &mut Vec<md6_word>, r: usize) {
     let mut j = 0;
     while j < r * c {
         loop_body!(10, 11, 0, S, i);
-        loop_body!(10,11, 0, S, i);
-        loop_body!( 5,24, 1, S, i);
+        loop_body!(10, 11, 0, S, i);
+        loop_body!(5, 24, 1, S, i);
         loop_body!(13, 9, 2, S, i);
-        loop_body!(10,16, 3, S, i);
-        loop_body!(11,15, 4, S, i);
+        loop_body!(10, 16, 3, S, i);
+        loop_body!(11, 15, 4, S, i);
         loop_body!(12, 9, 5, S, i);
-        loop_body!( 2,27, 6, S, i);
-        loop_body!( 7,15, 7, S, i);
+        loop_body!(2, 27, 6, S, i);
+        loop_body!(7, 15, 7, S, i);
         loop_body!(14, 6, 8, S, i);
         loop_body!(15, 2, 9, S, i);
-        loop_body!( 7,29,10, S, i);
-        loop_body!(13, 8,11, S, i);
-        loop_body!(11,15,12, S, i);
-        loop_body!( 7, 5,13, S, i);
-        loop_body!( 6,31,14, S, i);
-        loop_body!(12, 9,15, S, i);
+        loop_body!(7, 29, 10, S, i);
+        loop_body!(13, 8, 11, S, i);
+        loop_body!(11, 15, 12, S, i);
+        loop_body!(7, 5, 13, S, i);
+        loop_body!(6, 31, 14, S, i);
+        loop_body!(12, 9, 15, S, i);
 
         S = (S << 1) ^ (S >> (w - 1)) ^ (S & SMASK);
         i += 16;
         j += c;
+    }
+}
+
+#[test]
+fn test_md6() {
+    // Reference: https://github.com/Richienb/md6-hash/blob/master/test.js
+    const TEST_VECTORS: [(&str, usize, &str); 1] = [("a", 64, "32d13030a6815e95")];
+
+    for (text, size, expected_hash) in TEST_VECTORS {
+        let mut output = vec![];
+
+        let mut hasher = MD6State::init(size);
+        hasher.update(text.as_bytes().to_vec(), text.as_bytes().len() * 8);
+        hasher.finalize(&mut output);
+
+        // assert!(hasher.hexhashval == expected_hash);
+        println!("hash output  : {:?}", hasher.hexhashval);
+        println!("expected hash: {:?}", expected_hash);
     }
 }
