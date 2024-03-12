@@ -166,15 +166,18 @@ impl MD6State {
         assert!(self.initialized, "state not init");
         assert!(!data.is_empty(), "null data");
 
-        let mut portion_size = 0;
         let mut j = 0;
         while j < databitlen {
-            portion_size = (databitlen - j).min(b * w - self.bits[1]);
-            if portion_size == b * w {
-                self.B[1].copy_from_slice(&bytes_to_words(&data[j / 8..(j / 8 + portion_size / 8)]));
+            let portion_size = (databitlen - j).min(b * w - self.bits[1]);
+            let mut block_words = if portion_size == b * w {
+               bytes_to_words(&data[j / 8..(j / 8 + portion_size / 8)])
             } else {
-                self.B[1].copy_from_slice(&bytes_to_words(&data[j / 8..]));
+               bytes_to_words(&data[j / 8..])
+            };
+            if block_words.len() != b {
+                block_words.extend(vec![0; b - block_words.len()]);
             }
+            self.B[1].copy_from_slice(&block_words);
 
             j += portion_size;
             self.bits[1] += portion_size;
@@ -441,8 +444,11 @@ fn md6_default_r(d: usize, keylen: usize) -> usize {
 }
 
 fn bytes_to_words(bytes: &[u8]) -> Vec<u64> {
-    // Ensure the input length is a multiple of 8
-    assert_eq!(bytes.len() % 8, 0, "Input length must be a multiple of 8");
+    // padding
+    let mut bytes = bytes.to_vec();
+    if bytes.len() % 8 != 0 {
+        bytes.extend(vec![0x00; 8 - bytes.len() % 8]);
+    }
 
     // Create an empty vector to store the u64 values
     let mut words = Vec::with_capacity(bytes.len() / 8);
