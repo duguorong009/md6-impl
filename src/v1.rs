@@ -220,10 +220,8 @@ impl MD6State {
         // "process" has saved final chaining value in self.hashval
         self.trim_hashval();
 
-        if !hashval.is_empty() {
-            for i in 0..self.hashval.len() {
-                hashval[i] = self.hashval[i];
-            }
+        if hashval.is_empty() {
+            hashval.extend(&self.hashval);
         }
 
         self.compute_hex_hashval();
@@ -594,8 +592,12 @@ fn test_md6() {
         hasher.update(text.as_bytes().to_vec(), text.as_bytes().len() * 8);
         hasher.finalize(&mut output);
 
-        // assert!(hasher.hexhashval == expected_hash);
-        println!("hash output  : {:?}", hasher.hexhashval);
-        println!("expected hash: {:?}", expected_hash);
+        let hex_output = output
+            .into_iter()
+            .filter(|o| o != &0)
+            .map(|o| format!("{:02x}", o))
+            .collect::<String>();
+
+        assert!(hex_output == expected_hash);
     }
 }
