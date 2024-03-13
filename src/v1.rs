@@ -61,7 +61,7 @@ struct MD6State {
     /* hashval appears in first floor(d/8) bytes, with           */
     /* remaining (d mod 8) bits (if any) appearing in            */
     /* high-order bit positions of hashval[1+floor(d/8)].        */
-    hexhashval: [u8; c * (w / 8) + 1],
+    hexhashval: [char; c * (w / 8) + 1],
     /* e.g. unsigned char hexhashval[129];                       */
     /* zero-terminated string representing hex value of hashval  */
     initialized: bool,        /* zero, then one after md6_init called */
@@ -129,7 +129,7 @@ impl MD6State {
         let finalized = false;
         let compression_calls = 0;
         let bits_processed = 0;
-        let hexhashval = [0; 129];
+        let hexhashval = ['\n'; 129];
         let hashval = [0; 128];
         let hashbitlen = 0;
         let top = 1;
@@ -274,17 +274,6 @@ impl MD6State {
 
         self.compression_calls += 1;
 
-        if ell == 1 {
-            /* leaf; hashing data; reverse bytes if nec. */
-            if ell < self.L + 1 {
-                /* PAR (tree) node */
-                self.B[ell].reverse();
-            } else {
-                /* SEQ (sequential) node; don't reverse chaining vars */
-                self.B[ell][c..].reverse();
-            }
-        }
-
         let p = b * w - self.bits[ell]; /* number of pad bits */
 
         self.standard_compress(
@@ -376,11 +365,11 @@ impl MD6State {
         ];
 
         for i in 0..((self.d + 7) / 8) {
-            self.hexhashval[2 * i] = hex_digits[((self.hashval[i] >> 4) & 0xf) as usize] as u8;
-            self.hexhashval[2 * i + 1] = hex_digits[((self.hashval[i]) & 0xf) as usize] as u8;
+            self.hexhashval[2 * i] = hex_digits[((self.hashval[i] >> 4) & 0xf) as usize];
+            self.hexhashval[2 * i + 1] = hex_digits[((self.hashval[i]) & 0xf) as usize];
         }
 
-        self.hexhashval[((self.d + 3) / 4) as usize] = 0;
+        self.hexhashval[((self.d + 3) / 4) as usize] = '\n';
     }
 
     fn trim_hashval(&mut self) {
