@@ -1,29 +1,31 @@
+
 type md6_word = u64;
 
-/* MD6 constants independent of mode of operation (from md6.h) */
-const md6_default_L: usize = 64;
+/* MD6 constants independent of mode of operation */
+const md6_default_L: usize = 64; // large so that MD6 is fully hierarchical
 const w: usize = 64; // md6_w: bits in a word
 const n: usize = 89; // md6_n: # words in compression input
 const c: usize = 16; // md6_c: # words in compression output
 
-/* MD6 constants needed for mode of operation                  */
-const q: usize = 15; // md6_q: # words in Q
-const k: usize = 8; // md6_k: # words in key (aka salt)
-const u: usize = 1; // md6_u: # words in unique node ID
-const v: usize = 1; // md6_v: # words in control word
-const b: usize = 64; // md6_b: # data words per compression block
+/* MD6 constants related to standard mode of operation         */
+const q: usize = 15; // md6_q: # Q words in compression block (>=0)
+const k: usize = 8; // md6_k: # key words per compression block (>=0)
+const u: usize = 64 / w; // md6_u: # words for unique node ID (0 or 64/w)
+const v: usize = 64 / w; // md6_v: # words for control word (0 or 64/w)
+const b: usize = 64; // md6_b: # data words per compression block (>0)
 
 const md6_max_stack_height: usize = 29;
 
-const S0: u64 = 0x0123456789abcdef;
-const SMASK: u64 = 0x7311c2812425cfa0;
+const S0: md6_word = 0x0123456789abcdef;
+const Smask: md6_word = 0x7311c2812425cfa0;
 
-const t0: usize = 17;
-const t1: usize = 18;
-const t2: usize = 21;
-const t3: usize = 31;
-const t4: usize = 67;
-const t5: usize = 89;
+/* "Tap positions" for feedback shift-register */
+const t0: usize = 17; /* index for linear feedback */
+const t1: usize = 18; /* index for first input to first and */
+const t2: usize = 21; /* index for second input to first and */
+const t3: usize = 31; /* index for first input to second and */
+const t4: usize = 67; /* index for second input to second and */
+const t5: usize = 89; /* last tap */
 
 /* MD6 Constant Vector Q
 ** Q = initial 960 bits of fractional part of sqrt(6)
@@ -64,10 +66,10 @@ struct MD6State {
     hexhashval: [char; c * (w / 8) + 1],
     /* e.g. unsigned char hexhashval[129];                       */
     /* zero-terminated string representing hex value of hashval  */
-    initialized: bool,        /* zero, then one after md6_init called */
+    initialized: bool,        /* false, then true after md6_init called */
     bits_processed: usize,    /* bits processed so far */
     compression_calls: usize, /* compression function calls made */
-    finalized: bool,          /* zero, then one after md6_final called */
+    finalized: bool,          /* false, then true after md6_final called */
 
     K: [md6_word; k], /* k-word (8 word) key (aka "salt") for this instance of md6 */
 
@@ -577,7 +579,7 @@ fn md6_main_compression_loop(A: &mut Vec<md6_word>, r: usize) {
         loop_body!(6, 31, 14, S, i);
         loop_body!(12, 9, 15, S, i);
 
-        S = (S << 1) ^ (S >> (w - 1)) ^ (S & SMASK);
+        S = (S << 1) ^ (S >> (w - 1)) ^ (S & Smask);
         i += 16;
         j += c;
     }
