@@ -105,9 +105,9 @@ impl MD6State {
 
     pub fn full_init(d: usize, key: Option<Vec<u8>>, keylen: usize, L: usize, r: usize) -> Self {
         if key.is_some() {
-            assert!(keylen <= 8 * (64 / 8), "bad keylen");
+            assert!(keylen <= k * (w / 8), "bad keylen");
         }
-        assert!(!(d < 1 || d > 512 || d > 64 * 16 / 2), "bad hashlen");
+        assert!(!(d < 1 || d > 512 || d > w * c / 2), "bad hashlen");
 
         let (K, keylen) = if key.is_some() && keylen > 0 {
             let key = key.unwrap();
@@ -129,18 +129,18 @@ impl MD6State {
         let finalized = false;
         let compression_calls = 0;
         let bits_processed = 0;
-        let hexhashval = ['\n'; 129];
-        let hashval = [0; 128];
+        let hexhashval = ['\n'; c * (w / 8) + 1];
+        let hashval = [0; c * (w / 8)];
         let hashbitlen = 0;
         let top = 1;
 
-        let mut bits = [0; 29];
+        let mut bits = [0; md6_max_stack_height];
         if L == 0 {
             bits[1] = c * w
         };
 
-        let B = [[0; 64]; 29];
-        let i_for_level = [0; 29];
+        let B = [[0; b]; md6_max_stack_height];
+        let i_for_level = [0; md6_max_stack_height];
 
         MD6State {
             d,
@@ -207,7 +207,7 @@ impl MD6State {
         } else {
             ell = 1;
             while ell <= self.top {
-                if self.bits[ell as usize] > 0 {
+                if self.bits[ell] > 0 {
                     break;
                 }
                 ell += 1;
@@ -367,7 +367,7 @@ impl MD6State {
             self.hexhashval[2 * i + 1] = hex_digits[((self.hashval[i]) & 0xf) as usize];
         }
 
-        self.hexhashval[((self.d + 3) / 4) as usize] = '\n';
+        self.hexhashval[(self.d + 3) / 4] = '\n';
     }
 
     fn trim_hashval(&mut self) {
@@ -375,7 +375,7 @@ impl MD6State {
         let bits = self.d % 8;
 
         for i in 0..full_or_partial_bytes {
-            self.hashval[i] = self.hashval[(c * (w / 8) - full_or_partial_bytes + i) as usize];
+            self.hashval[i] = self.hashval[c * (w / 8) - full_or_partial_bytes + i];
         }
 
         for i in full_or_partial_bytes..(c * (w / 8)) {
@@ -421,6 +421,8 @@ pub fn md6_hash(d: usize, data: Vec<u8>, databitlen: usize, hashval: &mut Vec<u8
     );
 }
 
+// Default number of rounds
+// (as a function of digest size d and keylen
 fn md6_default_r(d: usize, keylen: usize) -> usize {
     let mut r = 40 + (d / 4);
     if keylen > 0 {
@@ -429,6 +431,7 @@ fn md6_default_r(d: usize, keylen: usize) -> usize {
     r
 }
 
+// convert u8 slice to u64 vec
 fn bytes_to_words(bytes: &[u8]) -> Vec<u64> {
     // padding
     let mut bytes = bytes.to_vec();
@@ -453,6 +456,7 @@ fn bytes_to_words(bytes: &[u8]) -> Vec<u64> {
     words
 }
 
+// convert u64 slice to u8 vec
 fn words_to_bytes(words: &[u64]) -> Vec<u8> {
     // Create an empty vector to store the u8 values
     let mut bytes = Vec::with_capacity(words.len() * 8);
@@ -539,8 +543,6 @@ fn md6_compress(C: &mut Vec<md6_word>, N: &mut Vec<md6_word>, r: usize, A: &mut 
 }
 
 fn md6_main_compression_loop(A: &mut Vec<md6_word>, r: usize) {
-    let mut S = S0;
-
     macro_rules! loop_body {
         ($rs: expr, $ls: expr, $step: expr, $S: expr, $i: expr) => {
             let mut x = $S;
@@ -553,6 +555,7 @@ fn md6_main_compression_loop(A: &mut Vec<md6_word>, r: usize) {
         };
     }
 
+    let mut S = S0;
     let mut i = n;
     let mut j = 0;
     while j < r * c {
