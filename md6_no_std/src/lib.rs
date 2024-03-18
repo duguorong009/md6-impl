@@ -441,35 +441,13 @@ fn md6_default_r(d: usize, keylen: usize) -> usize {
     r
 }
 
-// // convert u8 slice to u64 vec
-// fn bytes_to_words(bytes: &[u8]) -> &[u64] {
-//     // padding
-//     let mut bytes = bytes;
-//     if bytes.len() % 8 != 0 {
-//         bytes.extend([0x00; 8 - bytes.len() % 8]);
-//     }
-
-//     // Create an empty vector to store the u64 values
-//     let mut words = Vec::with_capacity(bytes.len() / 8);
-
-//     // Iterate over the input bytes in chunks of 8
-//     for chunk in bytes.chunks_exact(8) {
-//         // Convert the chunk to a u64 using big-endian byte order
-//         let value = chunk
-//             .iter()
-//             .fold(0u64, |acc, &byte| (acc << 8) | u64::from(byte));
-
-//         // Push the u64 value to the result vector
-//         words.push(value);
-//     }
-
-//     words
-// }
-
 // Convert u8 slice to u64 slice
 fn bytes_to_words(bytes: &[u8], output: &mut [u64]) -> usize {
     // Ensure output capacity is enough to store all u64 values
-    assert!(output.len() * 8 >= bytes.len(), "Output slice is too small.");
+    assert!(
+        output.len() * 8 >= bytes.len(),
+        "Output slice is too small."
+    );
 
     // Perform padding if necessary
     let mut padded_bytes = [0u8; 8];
@@ -477,7 +455,9 @@ fn bytes_to_words(bytes: &[u8], output: &mut [u64]) -> usize {
     let mut words_written = 0;
 
     while bytes.len() >= 8 {
-        output[words_written] = u64::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7]]);
+        output[words_written] = u64::from_be_bytes([
+            bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+        ]);
         bytes = &bytes[8..];
         words_written += 1;
     }
@@ -486,28 +466,13 @@ fn bytes_to_words(bytes: &[u8], output: &mut [u64]) -> usize {
     words_written
 }
 
-
-// // convert u64 slice to u8 vec
-// fn words_to_bytes(words: &[u64]) -> &[u8] {
-//      // Create a fixed-size array to store the u8 values
-//      let mut bytes = [0u8; 8 * {const LEN: usize = words.len(); LEN}];
-
-//     // Iterate over the u64 values in the words vector
-//     for &word in words {
-//         // Extract bytes from the u64 value in big-endian order
-//         for shift in (0..8).rev() {
-//             let byte = (word >> (shift * 8)) as u8;
-//             bytes.push(byte);
-//         }
-//     }
-
-//     bytes
-// }
-
 // Convert u64 slice to u8 slice
 fn words_to_bytes(words: &[u64], output: &mut [u8]) {
     // Ensure the output slice has enough capacity
-    assert!(output.len() >= words.len() * 8, "Output slice is too small.");
+    assert!(
+        output.len() >= words.len() * 8,
+        "Output slice is too small."
+    );
 
     // Iterate over the u64 values in the words slice
     for (i, &word) in words.iter().enumerate() {
