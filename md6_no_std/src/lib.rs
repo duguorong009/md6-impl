@@ -2,7 +2,7 @@
 
 extern crate alloc;
 
-use alloc::{fmt::format, string::String};
+use core::mem::size_of;
 
 type md6_word = u64;
 
@@ -183,9 +183,6 @@ impl MD6State {
             } else {
                 bytes_to_words(&data[j / 8..], &mut block_words);
             };
-            // if block_words.len() != b {
-            //     block_words.extend(&[0; b - block_words.len()]);
-            // }
             self.B[1].copy_from_slice(&block_words);
 
             j += portion_size;
@@ -337,7 +334,6 @@ impl MD6State {
         if z == 1 {
             /* save final chaining value in st->hashval */
             words_to_bytes(&C, &mut self.hashval);
-            // self.hashval = words_to_bytes(&C).try_into().unwrap();
             return;
         }
 
@@ -443,34 +439,41 @@ fn md6_default_r(d: usize, keylen: usize) -> usize {
 
 // Convert u8 slice to u64 slice
 fn bytes_to_words(bytes: &[u8], output: &mut [u64]) -> usize {
+    let bytes_len = bytes.len();
+
+    // If the length of bytes is zero, return early
+    if bytes_len == 0 {
+        return 0;
+    }
+
     // Ensure output capacity is enough to store all u64 values
-    assert!(
-        output.len() * 8 >= bytes.len(),
-        "Output slice is too small."
-    );
+    assert!(output.len() * size_of::<u64>() >= bytes_len, "Output slice is too small.");
 
-    // Perform padding if necessary
-    let mut padded_bytes = [0u8; 8];
-    let mut bytes = bytes;
-    let mut words_written = 0;
+    // Calculate the number of u64 values we can write
+    let words_to_write = core::cmp::max(bytes_len / size_of::<u64>(), 1);
 
-    while bytes.len() >= 8 {
-        output[words_written] = u64::from_be_bytes([
-            bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
-        ]);
-        bytes = &bytes[8..];
-        words_written += 1;
+    // Iterate over the input bytes in chunks of u64 size
+    for i in 0..words_to_write {
+        // Convert the chunk to a u64 using big-endian byte order
+        let mut word: u64 = 0;
+        let mut padded_bytes: [u8; 8] = [0x00; 8];
+        padded_bytes.copy_from_slice(&bytes[i * size_of::<u64>()..]);
+        for j in 0..size_of::<u64>() {
+            word |= u64::from(padded_bytes[i * size_of::<u64>() + j]) << (8 * (size_of::<u64>() - 1 - j));
+        }
+        // Write the u64 value to the output slice
+        output[i] = word;
     }
 
     // Return the number of words written
-    words_written
+    words_to_write
 }
 
 // Convert u64 slice to u8 slice
 fn words_to_bytes(words: &[u64], output: &mut [u8]) {
     // Ensure the output slice has enough capacity
     assert!(
-        output.len() >= words.len() * 8,
+        output.len() == words.len() * 8,
         "Output slice is too small."
     );
 
@@ -596,6 +599,8 @@ fn md6_main_compression_loop(A: &mut [md6_word], r: usize) {
 
 #[test]
 fn test_md6() {
+    use alloc::{fmt::format, string::String};
+
     // Reference: https://github.com/Richienb/md6-hash/blob/master/test.js
     const TEST_VECTORS: [(&str, usize, &str); 10] = [
         ("a", 64, "32d13030a6815e95"),
@@ -733,7 +738,7 @@ fn test_md6() {
     ];
 
     for (text, size, expected_hash) in TEST_VECTORS {
-        let mut output = [0x00; 64 / 8];
+        let mut output = [0x00; c * (w / 8)];
 
         let mut hasher = MD6State::init(size);
         hasher.update(text.as_bytes(), text.as_bytes().len() * 8);
