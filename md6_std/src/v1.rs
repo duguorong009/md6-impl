@@ -1,4 +1,3 @@
-
 // Original C code: https://github.com/brbsh/samp-plugin-md6
 
 type md6_word = u64;
