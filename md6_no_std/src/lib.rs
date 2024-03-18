@@ -456,10 +456,8 @@ fn bytes_to_words(bytes: &[u8], output: &mut [u64]) -> usize {
     for i in 0..words_to_write {
         // Convert the chunk to a u64 using big-endian byte order
         let mut word: u64 = 0;
-        let mut padded_bytes: [u8; 8] = [0x00; 8];
-        padded_bytes.copy_from_slice(&bytes[i * size_of::<u64>()..]);
-        for j in 0..size_of::<u64>() {
-            word |= u64::from(padded_bytes[i * size_of::<u64>() + j]) << (8 * (size_of::<u64>() - 1 - j));
+        for j in 0..core::cmp::min(size_of::<u64>(), bytes.len()) {
+            word |= u64::from(bytes[i * size_of::<u64>() + j]) << (8 * (size_of::<u64>() - 1 - j));
         }
         // Write the u64 value to the output slice
         output[i] = word;
@@ -743,6 +741,8 @@ fn test_md6() {
         let mut hasher = MD6State::init(size);
         hasher.update(text.as_bytes(), text.as_bytes().len() * 8);
         hasher.finalize(&mut output);
+
+        assert!(output == [0; 128], "ouch");
 
         let hex_output = output[0..size / 8]
             .into_iter()
