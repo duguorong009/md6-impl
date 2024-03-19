@@ -4,10 +4,10 @@ use core::mem::size_of;
 use core::num::Wrapping as W;
 
 type Wu64 = W<u64>;
-type md6_word = Wu64;
+type Md6Word = Wu64;
 
 /* MD6 constants independent of mode of operation */
-const md6_default_L: usize = 64; // large so that MD6 is fully hierarchical
+const MD6_DEFAULT_L: usize = 64; // large so that MD6 is fully hierarchical
 const w: usize = 64; // md6_w: bits in a word
 const n: usize = 89; // md6_n: # words in compression input
 const c: usize = 16; // md6_c: # words in compression output
@@ -21,8 +21,8 @@ const b: usize = 64; // md6_b: # data words per compression block (>0)
 
 const md6_max_stack_height: usize = 29;
 
-const S0: md6_word = W(0x0123456789abcdef);
-const Smask: md6_word = W(0x7311c2812425cfa0);
+const S0: Md6Word = W(0x0123456789abcdef);
+const Smask: Md6Word = W(0x7311c2812425cfa0);
 
 /* "Tap positions" for feedback shift-register */
 const t0: usize = 17; /* index for linear feedback */
@@ -35,7 +35,7 @@ const t5: usize = 89; /* last tap */
 /* MD6 Constant Vector Q
 ** Q = initial 960 bits of fractional part of sqrt(6)
 */
-const Q: [md6_word; 15] = [
+const Q: [Md6Word; 15] = [
     W(0x7311c2812425cfa0),
     W(0x6432286434aac8e7),
     W(0xb60450e9ef68b7c1),
@@ -76,19 +76,19 @@ pub(crate) struct MD6State {
     compression_calls: usize, /* compression function calls made */
     finalized: bool,          /* false, then true after md6_final called */
 
-    K: [md6_word; k], /* k-word (8 word) key (aka "salt") for this instance of md6 */
+    K: [Md6Word; k], /* k-word (8 word) key (aka "salt") for this instance of md6 */
 
     keylen: usize, /* number of bytes in key K. 0<=keylen<=k*(w/8)              */
 
     L: usize, /* md6 mode specification parameter. 0 <= L <= 255           */
     /* L == 0 means purely sequential (Merkle-Damgaard)          */
     /* L >= 29 means purely tree-based                           */
-    /* Default is md6_default_L = 64 (hierarchical)              */
+    /* Default is MD6_DEFAULT_L = 64 (hierarchical)              */
     r: usize,
     /* Number of rounds. 0 <= r <= 255                           */
     top: usize,
     /* index of block corresponding to top of stack              */
-    B: [[md6_word; b]; md6_max_stack_height],
+    B: [[Md6Word; b]; md6_max_stack_height],
     /* md6_word B[29][64]                                        */
     /* stack of 29 64-word partial blocks waiting to be          */
     /* completed and compressed.                                 */
@@ -107,7 +107,7 @@ pub(crate) struct MD6State {
 
 impl MD6State {
     pub fn init(d: usize) -> Self {
-        Self::full_init(d, None, 0, md6_default_L, md6_default_r(d, 0))
+        Self::full_init(d, None, 0, MD6_DEFAULT_L, md6_default_r(d, 0))
     }
 
     pub fn full_init(d: usize, key: Option<&[u8]>, keylen: usize, L: usize, r: usize) -> Self {
@@ -177,7 +177,7 @@ impl MD6State {
         let mut j = 0;
         while j < databitlen {
             let portion_size = (databitlen - j).min(b * w - self.bits[1]);
-            let mut block_words: [md6_word; b] = [W(0); b];
+            let mut block_words: [Md6Word; b] = [W(0); b];
             if portion_size == b * w {
                 bytes_to_words(&data[j / 8..(j / 8 + portion_size / 8)], &mut block_words);
             } else {
@@ -237,8 +237,8 @@ impl MD6State {
 
     fn standard_compress(
         &mut self,
-        C: &mut [md6_word],
-        K: [md6_word; k],
+        C: &mut [Md6Word],
+        K: [Md6Word; k],
         ell: usize,
         i: u64,
         r: usize,
@@ -247,10 +247,10 @@ impl MD6State {
         p: usize,
         keylen: usize,
         d: usize,
-        B: [md6_word; b],
+        B: [Md6Word; b],
     ) {
-        let mut N: [md6_word; md6_n] = [W(0); md6_n];
-        let mut A: [md6_word; 5000] = [W(0); 5000];
+        let mut N: [Md6Word; md6_n] = [W(0); md6_n];
+        let mut A: [Md6Word; 5000] = [W(0); 5000];
 
         // check that input values are sensible
         assert!(!C.is_empty());
@@ -421,7 +421,7 @@ pub fn md6_hash(d: usize, data: &[u8], databitlen: usize, hashval: &mut [u8]) {
         databitlen,
         None,
         0,
-        md6_default_L,
+        MD6_DEFAULT_L,
         md6_default_r(d, 0),
         hashval,
     );
@@ -509,7 +509,7 @@ fn md6_make_control_word(r: usize, L: usize, z: usize, p: usize, keylen: usize, 
 
 fn md6_pack(
     N: &mut [Wu64],
-    K: [md6_word; k],
+    K: [Md6Word; k],
     ell: usize,
     i: u64,
     r: usize,
@@ -518,7 +518,7 @@ fn md6_pack(
     p: usize,
     keylen: usize,
     d: usize,
-    B: [md6_word; 64],
+    B: [Md6Word; 64],
 ) {
     let mut ni = 0;
 
@@ -546,7 +546,7 @@ fn md6_pack(
     }
 }
 
-fn md6_compress(C: &mut [md6_word], N: &mut [md6_word], r: usize, A: &mut [md6_word]) {
+fn md6_compress(C: &mut [Md6Word], N: &mut [Md6Word], r: usize, A: &mut [Md6Word]) {
     assert!(!N.is_empty());
     assert!(!C.is_empty());
     assert!(r <= md6_max_r);
@@ -563,7 +563,7 @@ fn md6_compress(C: &mut [md6_word], N: &mut [md6_word], r: usize, A: &mut [md6_w
     }
 }
 
-fn md6_main_compression_loop(A: &mut [md6_word], r: usize) {
+fn md6_main_compression_loop(A: &mut [Md6Word], r: usize) {
     macro_rules! loop_body {
         ($rs: expr, $ls: expr, $step: expr, $S: expr, $i: expr) => {
             let mut x = $S;
