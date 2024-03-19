@@ -1,7 +1,7 @@
 extern crate alloc;
 
-use core::mem::size_of;
 use alloc::string::String;
+use core::mem::size_of;
 use core::num::Wrapping as W;
 
 type Wu64 = W<u64>;
