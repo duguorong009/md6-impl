@@ -354,7 +354,7 @@ impl MD6State {
         }
 
         /* now copy C onto next level */
-        self.B[next_level].copy_from_slice(&C);
+        self.B[next_level][..c].copy_from_slice(&C);
         self.bits[next_level] += c * w;
 
         if next_level > self.top {
