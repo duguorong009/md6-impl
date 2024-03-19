@@ -24,9 +24,9 @@ mod state;
 
 use crate::state::MD6State;
 
-impl_md6!(Md664Core, Md664, U64, U64, 64);
-impl_md6!(Md6128Core, Md6128, U128, U64, 128);
-impl_md6!(Md6224Core, Md6224, U224, U64, 224);
-impl_md6!(Md6256Core, Md6256, U256, U64, 256);
-impl_md6!(Md6384Core, Md6384, U384, U64, 384);
-impl_md6!(Md6512Core, Md6512, U512, U64, 512);
+impl_md6!(Md6_64Core, Md6_64, U64, U64, 64);
+impl_md6!(Md6_128Core, Md6_128, U128, U64, 128);
+impl_md6!(Md6_224Core, Md6_224, U224, U64, 224);
+impl_md6!(Md6_256Core, Md6_256, U256, U64, 256);
+impl_md6!(Md6_384Core, Md6_384, U384, U64, 384);
+impl_md6!(Md6_512Core, Md6_512, U512, U64, 512);
