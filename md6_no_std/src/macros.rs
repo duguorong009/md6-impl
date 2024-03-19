@@ -44,7 +44,7 @@ macro_rules! impl_md6 {
 
                 let mut tmp = [0; 128];
                 self.state.finalize(&mut tmp);
-                
+
                 for (i, o) in out.iter_mut().enumerate() {
                     *o = tmp[i];
                 }
