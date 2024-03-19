@@ -41,7 +41,13 @@ macro_rules! impl_md6 {
             fn finalize_fixed_core(&mut self, buffer: &mut Buffer<Self>, out: &mut Output<Self>) {
                 let block = buffer.pad_with_zeros();
                 self.state.update(&block, block.len() * 8);
-                self.state.finalize(out)
+
+                let mut tmp = [0; 128];
+                self.state.finalize(&mut tmp);
+                
+                for (i, o) in out.iter_mut().enumerate() {
+                    *o = tmp[i];
+                }
             }
         }
 
