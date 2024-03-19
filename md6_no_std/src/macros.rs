@@ -1,13 +1,13 @@
 macro_rules! impl_md6 {
     (
-        $name:ident, $full_name:ident, $output_size:ident, $rate:ident
+        $name:ident, $full_name:ident, $output_size:ident, $rate:ident, $output_size_len: expr
     ) => {
         #[doc = "Core "]
         #[doc = " hasher state."]
         #[derive(Clone)]
         #[allow(non_camel_case_types)]
         pub struct $name {
-            state: Md6State,
+            state: MD6State,
         }
 
         #[doc = " hasher state."]
@@ -39,6 +39,8 @@ macro_rules! impl_md6 {
         impl FixedOutputCore for $name {
             #[inline]
             fn finalize_fixed_core(&mut self, buffer: &mut Buffer<Self>, out: &mut Output<Self>) {
+                let block = buffer.pad_with_zeros();
+                self.state.update(&block, block.len() * 8);
                 self.state.finalize(out)
             }
         }
@@ -47,7 +49,7 @@ macro_rules! impl_md6 {
             #[inline]
             fn default() -> Self {
                 Self {
-                    state: Md6State::init($output_size)
+                    state: MD6State::init($output_size_len),
                 }
             }
         }
@@ -79,7 +81,7 @@ macro_rules! impl_md6 {
                 }
             }
         }
-        
+
         #[cfg(feature = "zeroize")]
         impl ZeroizeOnDrop for $name {}
     };
