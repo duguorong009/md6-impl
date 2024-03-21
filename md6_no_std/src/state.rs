@@ -174,6 +174,7 @@ impl MD6State {
         assert!(self.initialized, "state not init");
         assert!(!data.is_empty(), "null data");
 
+        // TODO: fix this update logic according to c++ version
         let mut j = 0;
         while j < databitlen {
             let portion_size = (databitlen - j).min(b * w - self.bits[1]);
