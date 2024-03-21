@@ -5,11 +5,11 @@ pub use digest::{self, Digest};
 use core::fmt;
 use digest::{
     block_buffer::Eager,
+    consts::{U16, U28, U32, U48, U64, U8},
     core_api::{
         AlgorithmName, Block, BlockSizeUser, Buffer, BufferKindUser, CoreWrapper, FixedOutputCore,
         OutputSizeUser, Reset, UpdateCore,
     },
-    consts::{U128, U224, U256, U384, U512, U64},
     HashMarker, Output,
 };
 
@@ -24,9 +24,9 @@ mod state;
 
 use crate::state::MD6State;
 
-impl_md6!(Md6_64Core, Md6_64, U64, U64, 64);
-impl_md6!(Md6_128Core, Md6_128, U128, U64, 128);
-impl_md6!(Md6_224Core, Md6_224, U224, U64, 224);
-impl_md6!(Md6_256Core, Md6_256, U256, U64, 256);
-impl_md6!(Md6_384Core, Md6_384, U384, U64, 384);
-impl_md6!(Md6_512Core, Md6_512, U512, U64, 512);
+impl_md6!(Md6_64Core, Md6_64, U8, U8, 64);
+impl_md6!(Md6_128Core, Md6_128, U8, U16, 128);
+impl_md6!(Md6_224Core, Md6_224, U8, U28, 224);
+impl_md6!(Md6_256Core, Md6_256, U8, U32, 256);
+impl_md6!(Md6_384Core, Md6_384, U8, U48, 384);
+impl_md6!(Md6_512Core, Md6_512, U8, U64, 512);
