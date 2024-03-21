@@ -9,7 +9,7 @@ use digest::{
         AlgorithmName, Block, BlockSizeUser, Buffer, BufferKindUser, CoreWrapper, FixedOutputCore,
         OutputSizeUser, Reset, UpdateCore,
     },
-    typenum::{U128, U224, U256, U384, U512, U64},
+    consts::{U128, U224, U256, U384, U512, U64},
     HashMarker, Output,
 };
 
