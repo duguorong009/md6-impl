@@ -40,7 +40,7 @@ macro_rules! impl_md6 {
             #[inline]
             fn finalize_fixed_core(&mut self, buffer: &mut Buffer<Self>, out: &mut Output<Self>) {
                 let block = buffer.pad_with_zeros();
-                self.state.update(&block, block.len() * 8);
+                self.state.update(&block, buffer.get_pos() * 8);
 
                 let mut tmp = [0; 128];
                 self.state.finalize(&mut tmp);
