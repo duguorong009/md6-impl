@@ -5,7 +5,7 @@ pub use digest::{self, Digest};
 use core::fmt;
 use digest::{
     block_buffer::Eager,
-    consts::{U16, U28, U32, U48, U64, U8, U128},
+    consts::{U128, U16, U28, U32, U48, U64, U8},
     core_api::{
         AlgorithmName, Block, BlockSizeUser, Buffer, BufferKindUser, CoreWrapper, FixedOutputCore,
         OutputSizeUser, Reset, UpdateCore,
