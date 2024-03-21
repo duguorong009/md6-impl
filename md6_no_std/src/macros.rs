@@ -1,6 +1,6 @@
 macro_rules! impl_md6 {
     (
-        $name:ident, $full_name:ident, $output_size:ident, $rate:ident, $output_size_len: expr
+        $name:ident, $full_name:ident, $input_block_bytes_len:ident, $output_bytes_len:ident, $output_size_bitlen: expr
     ) => {
         #[doc = "Core "]
         #[doc = " hasher state."]
@@ -16,7 +16,7 @@ macro_rules! impl_md6 {
         impl HashMarker for $name {}
 
         impl BlockSizeUser for $name {
-            type BlockSize = $rate;
+            type BlockSize = $input_block_bytes_len;
         }
 
         impl BufferKindUser for $name {
@@ -24,7 +24,7 @@ macro_rules! impl_md6 {
         }
 
         impl OutputSizeUser for $name {
-            type OutputSize = $output_size;
+            type OutputSize = $output_bytes_len;
         }
 
         impl UpdateCore for $name {
@@ -55,7 +55,7 @@ macro_rules! impl_md6 {
             #[inline]
             fn default() -> Self {
                 Self {
-                    state: MD6State::init($output_size_len),
+                    state: MD6State::init($output_size_bitlen),
                 }
             }
         }
