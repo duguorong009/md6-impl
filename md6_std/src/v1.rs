@@ -724,18 +724,18 @@ fn test_md6() {
         ("md6 FTW", 512, "75df3b6031e8241ef59d01628b093b05906f1a2d80c43908cb2883f7db6fbdd1cadffd7d643505c20b9529b6a5d19f8b6ff1623cabbc14a606caa7bcb239611a"),
     ];
 
-    for (text, size, expected_hash) in TEST_VECTORS {
+    for (msg, hashbitlen, expected_hex) in TEST_VECTORS {
         let mut output = vec![];
 
-        let mut hasher = MD6State::init(size);
-        hasher.update(text.as_bytes().to_vec(), text.as_bytes().len() * 8);
+        let mut hasher = MD6State::init(hashbitlen);
+        hasher.update(msg.as_bytes().to_vec(), msg.as_bytes().len() * 8);
         hasher.finalize(&mut output);
 
-        let hex_output = output[0..size / 8]
+        let digest_hex = output[..hashbitlen / 8]
             .into_iter()
             .map(|o| format!("{:02x}", o))
             .collect::<String>();
 
-        assert!(hex_output == expected_hash);
+        assert!(digest_hex == expected_hex);
     }
 }
