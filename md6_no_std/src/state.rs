@@ -139,7 +139,7 @@ impl MD6State {
         let bits_processed = 0;
         let hexhashval = ['\n'; c * (w / 8) + 1];
         let hashval = [0; c * (w / 8)];
-        let hashbitlen = 0;
+        let hashbitlen = d;
         let top = 1;
 
         let mut bits = [0; md6_max_stack_height];
@@ -400,34 +400,6 @@ impl MD6State {
             }
         }
     }
-}
-
-pub fn md6_full_hash(
-    d: usize,
-    data: &[u8],
-    databitlen: usize,
-    key: Option<&[u8]>,
-    keylen: usize,
-    L: usize,
-    r: usize,
-    hashval: &mut [u8],
-) {
-    let mut st = MD6State::full_init(d, key, keylen, L, r);
-    st.update(data, databitlen);
-    st.finalize(hashval);
-}
-
-pub fn md6_hash(d: usize, data: &[u8], databitlen: usize, hashval: &mut [u8]) {
-    md6_full_hash(
-        d,
-        data,
-        databitlen,
-        None,
-        0,
-        MD6_DEFAULT_L,
-        md6_default_r(d, 0),
-        hashval,
-    );
 }
 
 // Default number of rounds
