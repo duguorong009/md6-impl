@@ -172,15 +172,15 @@ impl MD6State {
         let mut j = 0;
         while j < databitlen {
             let portion_size = (databitlen - j).min(b * w - self.bits[1]);
-            let block_words = if portion_size == b * w {
-                bytes_to_words(&data[j / 8..(j / 8 + portion_size / 8)])
+            if (portion_size % 8 == 0) && (self.bits[1] % 8 == 0) && (j % 8 == 0) {
+                for (i, &byte) in data[(j / 8)..(j / 8 + portion_size / 8)].iter().enumerate() {
+                    let index_u64 = i / 8; // determine the index in the u64 array
+                    let shift_amount = (7 - i % 8) * 8; // big endian shifting
+                    self.B[1][(self.bits[1] / 64) + index_u64] |= (byte as u64) << shift_amount;
+                }
             } else {
-                bytes_to_words(&data[j / 8..])
-            };
-            let words_written = block_words.len();
-
-            self.B[1][(self.bits[1] / 8)..(self.bits[1] / 8 + words_written)]
-                .copy_from_slice(&block_words[..words_written]);
+                unreachable!("handle messy case when shifting is needed");
+            }
 
             j += portion_size;
             self.bits[1] += portion_size;
