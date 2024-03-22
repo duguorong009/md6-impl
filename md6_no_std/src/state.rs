@@ -177,7 +177,7 @@ impl MD6State {
         let mut j = 0;
         while j < databitlen {
             let portion_size = (databitlen - j).min(b * w - self.bits[1]);
-            
+
             if (portion_size % 8 == 0) && (self.bits[1] % 8 == 0) && (j % 8 == 0) {
                 for (i, &byte) in data[(j / 8)..(j / 8 + portion_size / 8)].iter().enumerate() {
                     let index_u64 = i / 8; // determine the index in the u64 array
