@@ -174,17 +174,17 @@ impl MD6State {
         assert!(self.initialized, "state not init");
         assert!(!data.is_empty(), "null data");
 
-        // TODO: fix this update logic according to c++ version
         let mut j = 0;
         while j < databitlen {
             let portion_size = (databitlen - j).min(b * w - self.bits[1]);
             let mut block_words: [Md6Word; b] = [W(0); b];
-            if portion_size == b * w {
-                bytes_to_words(&data[j / 8..(j / 8 + portion_size / 8)], &mut block_words);
+            let words_written = if portion_size == b * w {
+                bytes_to_words(&data[j / 8..(j / 8 + portion_size / 8)], &mut block_words)
             } else {
-                bytes_to_words(&data[j / 8..], &mut block_words);
+                bytes_to_words(&data[j / 8..], &mut block_words)
             };
-            self.B[1].copy_from_slice(&block_words);
+            self.B[1][(self.bits[1] / 8)..(self.bits[1] / 8 + words_written)]
+                .copy_from_slice(&block_words[..words_written]);
 
             j += portion_size;
             self.bits[1] += portion_size;
