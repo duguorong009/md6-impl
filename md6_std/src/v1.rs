@@ -172,15 +172,15 @@ impl MD6State {
         let mut j = 0;
         while j < databitlen {
             let portion_size = (databitlen - j).min(b * w - self.bits[1]);
-            let mut block_words = if portion_size == b * w {
+            let block_words = if portion_size == b * w {
                 bytes_to_words(&data[j / 8..(j / 8 + portion_size / 8)])
             } else {
                 bytes_to_words(&data[j / 8..])
             };
-            if block_words.len() != b {
-                block_words.extend(vec![0; b - block_words.len()]);
-            }
-            self.B[1].copy_from_slice(&block_words);
+            let words_written = block_words.len();
+
+            self.B[1][(self.bits[1] / 8)..(self.bits[1] / 8 + words_written)]
+                .copy_from_slice(&block_words[..words_written]);
 
             j += portion_size;
             self.bits[1] += portion_size;
