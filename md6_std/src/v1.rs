@@ -1,5 +1,8 @@
 // Original C code: https://github.com/brbsh/samp-plugin-md6
 
+#![allow(non_snake_case)]
+#![allow(non_upper_case_globals)]
+
 type md6_word = u64;
 
 /* MD6 constants independent of mode of operation */

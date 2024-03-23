@@ -1,4 +1,5 @@
-use std::cmp;
+#![allow(non_snake_case)]
+#![allow(non_upper_case_globals)]
 
 const b: u64 = 512;
 const c: u64 = 128;
