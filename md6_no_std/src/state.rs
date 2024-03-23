@@ -59,8 +59,7 @@ const md6_max_r: usize = 255;
 #[allow(non_snake_case)]
 #[derive(Debug, Clone)]
 pub(crate) struct MD6State {
-    d: usize,          /* desired hash bit length. 1 <= d <= 512.      */
-    hashbitlen: usize, /* hashbitlen is the same as d; for NIST API  */
+    d: usize,          /* desired hash bit length. 1 <= d <= 512. */
 
     hashval: [u8; c * (w / 8)],
     /* e.g. unsigned char hashval[128]                           */
@@ -139,7 +138,6 @@ impl MD6State {
         let bits_processed = 0;
         let hexhashval = ['\n'; c * (w / 8) + 1];
         let hashval = [0; c * (w / 8)];
-        let hashbitlen = d;
         let top = 1;
 
         let mut bits = [0; md6_max_stack_height];
@@ -152,7 +150,6 @@ impl MD6State {
 
         MD6State {
             d,
-            hashbitlen,
             hashval,
             hexhashval,
             initialized,
