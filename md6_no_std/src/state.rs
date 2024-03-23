@@ -1,3 +1,6 @@
+#![allow(non_snake_case)]
+#![allow(non_upper_case_globals)]
+
 extern crate alloc;
 
 use core::mem::size_of;
@@ -7,7 +10,7 @@ type Wu64 = W<u64>;
 type Md6Word = Wu64;
 
 /* MD6 constants independent of mode of operation */
-const MD6_DEFAULT_L: usize = 64; // large so that MD6 is fully hierarchical
+const md6_default_L: usize = 64; // large so that MD6 is fully hierarchical
 const w: usize = 64; // md6_w: bits in a word
 const n: usize = 89; // md6_n: # words in compression input
 const c: usize = 16; // md6_c: # words in compression output
@@ -59,7 +62,7 @@ const md6_max_r: usize = 255;
 #[allow(non_snake_case)]
 #[derive(Debug, Clone)]
 pub(crate) struct MD6State {
-    d: usize,          /* desired hash bit length. 1 <= d <= 512. */
+    d: usize,  /* desired hash bit length. 1 <= d <= 512. */
 
     hashval: [u8; c * (w / 8)],
     /* e.g. unsigned char hashval[128]                           */
@@ -77,12 +80,12 @@ pub(crate) struct MD6State {
 
     K: [Md6Word; k], /* k-word (8 word) key (aka "salt") for this instance of md6 */
 
-    keylen: usize, /* number of bytes in key K. 0<=keylen<=k*(w/8)              */
+    keylen: usize, /* number of bytes in key K. 0<=keylen<=k*(w/8) */
 
-    L: usize, /* md6 mode specification parameter. 0 <= L <= 255           */
+    L: usize, /* md6 mode specification parameter. 0 <= L <= 255 */
     /* L == 0 means purely sequential (Merkle-Damgaard)          */
     /* L >= 29 means purely tree-based                           */
-    /* Default is MD6_DEFAULT_L = 64 (hierarchical)              */
+    /* Default is md6_default_L = 64 (hierarchical)              */
     r: usize,
     /* Number of rounds. 0 <= r <= 255                           */
     top: usize,
@@ -106,7 +109,7 @@ pub(crate) struct MD6State {
 
 impl MD6State {
     pub fn init(d: usize) -> Self {
-        Self::full_init(d, None, 0, MD6_DEFAULT_L, md6_default_r(d, 0))
+        Self::full_init(d, None, 0, md6_default_L, md6_default_r(d, 0))
     }
 
     pub fn full_init(d: usize, key: Option<&[u8]>, keylen: usize, L: usize, r: usize) -> Self {
@@ -332,7 +335,7 @@ impl MD6State {
         self.compress_block(&mut C, ell, z);
 
         if z == 1 {
-            /* save final chaining value in st->hashval */
+            /* save final chaining value in self.hashval */
             words_to_bytes(&C, &mut self.hashval);
             return;
         }

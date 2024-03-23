@@ -13,8 +13,6 @@ use digest::{
     HashMarker, Output,
 };
 
-#[cfg(feature = "oid")]
-use digest::const_oid::{AssociatedOid, ObjectIdentifier};
 #[cfg(feature = "zeroize")]
 use digest::zeroize::{Zeroize, ZeroizeOnDrop};
 
